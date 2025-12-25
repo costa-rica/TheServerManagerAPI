@@ -1,81 +1,38 @@
-# The 404 Server Manager API
+# The Server Manager API
 
-This is a TypeScript Express.js API project. This is my starter project for all Express.js API projects.
+The Server Manager API is an ExpressJS TypeScript application that provides a RESTful API for managing servers and their applications. Each Ubuntu server runs its own instance of this API, all secured by a shared authentication layer and unified MongoDB instance.
 
-## Database
+## The Server Manager Ecosystem
 
-**IMPORTANT**
-See /docs/DATABASE_CONVERSION_OVERVIEW.md
+The Server Manager project is designed to help monitor, manage, and orchestrate servers and their applications across Ubuntu servers. It connects to various APIs deployed on each machine, all secured by a shared authentication layer and unified MongoDB instance.
 
-- This project uses MongoDB with Mongoose.
-- This project will remove the TypeScriptDb package and replace its implementation with Mongoose and the new structure provided in DATABASE_CONVERSION_OVERVIEW.md.
+There will be a front facing Next.js web application that provides real-time visibility and management features for your servers. Through its interface, users can:
 
-## Set up
+- View process logs from any connected machine. Logs found in the path defined in the .env file, PATH_TO_LOGS.
+- Check the status of apps running on the server. These apps Python and node.js applications that run using .service files
+- Manage DNS entries via the Porkbun API to add or modify Type A subdomains.
+- Automatically generate and register Nginx configurations for new subdomains.
+- View and manage existing Nginx configuration files from each server’s `/etc/nginx/sites-available/`, `/etc/nginx/sites-enabled/` directories.
 
-1. clone TypeScriptExpressJsAPI02starter
-2. Rename
-3. implement the MongoDB database
-
-```bash
-npm install express
-npm install --save-dev typescript ts-node nodemon @types/node @types/express
-```
-
-3. Create a `tsconfig.json` file (run `npx tsc --init` or manually make the file in root directory)
-
-Modify tsconfig.json
-
-```json
-{
-  "compilerOptions": {
-    "module": "CommonJS",
-    "moduleResolution": "node",
-    "esModuleInterop": true,
-    "verbatimModuleSyntax": false,
-    "outDir": "./dist",
-    "rootDir": "./src"
-  }
-}
-```
-
-4. Make src/ and app.ts
-
-```bash
-mkdir src
-touch src/app.ts
-```
-
-5. package.json scripts
-
-```json
-  "dev": "nodemon --watch src --exec ts-node src/app.ts",
-  "build": "tsc",
-  "start": "node dist/app.js"
-```
-
-6. Run
-
-- `npm run dev` to start the development server
-- `npm run build` to build the project, then `npm start` to start the production server
+The dashboard unifies multiple APIs, each hosted on a separate Ubuntu server, and communicates securely with the shared MongoDB database that stores machine data and network configurations. By switching between connected machines, The Server Manager dynamically updates its data context to display logs, apps, and configurations for the selected server.
 
 ## .env
 
-- workstation
+### workstation
 
 ```
-APP_NAME=The404-API
+APP_NAME=TheServerManagerAPI
 PORT=3000
 JWT_SECRET=SECRET_KEY
 ADMIN_EMAIL=["nrodrig1@gmail.com"]
-PROJECT_RESOURCES=/Users/nick/Documents/_project_resources/The404-API
-MONGODB_URI=mongodb+srv://nrodrig1:SECRET_KEY@cluster0.8puct.mongodb.net/The404v02
+PROJECT_RESOURCES=/Users/nick/Documents/_project_resources/TheServerManagerAPI
+MONGODB_URI=mongodb+srv://nrodrig1:SECRET_KEY@cluster0.8puct.mongodb.net/TheServerManagerAPI
 ADMIN_NODEMAILER_EMAIL_ADDRESS="nrodrig1@gmail.com"
 ADMIN_NODEMAILER_EMAIL_PASSWORD="SECRET_KEY"
-URL_THE404_WEB=https://the404.dashanddata.com/
-PATH_PM2_ECOSYSTEM=/Users/nick/Documents/_testData/ecosystem.config.js
-PATH_PM2_HOME=/Users/nick/.pm2
+URL_THE_SERVER_MANAGER_WEB=https://the-server-manager.dashanddata.com/
 PORKBUN_API_KEY=SECRET_KEY
 PORKBUN_SECRET_KEY=SECRET_KEY
-PATH_PROJECT_RESOURCES=/Users/nick/Documents/_project_resources/The404-API
+PATH_PROJECT_RESOURCES=/Users/nick/Documents/_project_resources/TheServerManagerAPI
 PATH_ETC_NGINX_SITES_AVAILABLE=/Users/nick/Documents/_testData/nginx/sites-available
+PATH_TO_LOGS=/Users/nick/Documents/_testData/logs
 ```

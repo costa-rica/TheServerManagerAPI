@@ -1,6 +1,6 @@
 # The Server Manager API Requirements
 
-This application will be built from The404API repo and converted to TheServerManagerAPI. The main difference is the structure of our Ubuntu servers will change to managing .service files in the /etc/systemd/system/ directories.
+These requirements are created withe goal of adding management of services that run on Ubuntu servers. The services will be .service files in the /etc/systemd/system/ directories.
 
 To accomplish this will weill implement a services router and module files.
 

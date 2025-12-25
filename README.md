@@ -8,11 +8,11 @@ The Server Manager project is designed to help monitor, manage, and orchestrate 
 
 There will be a front facing Next.js web application that provides real-time visibility and management features for your servers. Through its interface, users can:
 
-- View process logs from any connected machine. Logs found in the path defined in the .env file, PATH_TO_LOGS.
+- View process logs from any connected machine. Logs found in machine collection in MongoDB, the document called pathToLogs to the corresponding server's (machine) document.
 - Check the status of apps running on the server. These apps Python and node.js applications that run using .service files
 - Manage DNS entries via the Porkbun API to add or modify Type A subdomains.
 - Automatically generate and register Nginx configurations for new subdomains.
-- View and manage existing Nginx configuration files from each server’s `/etc/nginx/sites-available/`, `/etc/nginx/sites-enabled/` directories.
+- View and manage existing Nginx configuration files from each server’s `/etc/nginx/sites-available/`, `/etc/nginx/sites-enabled/` directories - these paths are found in the machine collection in MongoDB, the document called nginxStoragePathOptions to the corresponding server's (machine) document.
 
 The dashboard unifies multiple APIs, each hosted on a separate Ubuntu server, and communicates securely with the shared MongoDB database that stores machine data and network configurations. By switching between connected machines, The Server Manager dynamically updates its data context to display logs, apps, and configurations for the selected server.
 
@@ -21,7 +21,7 @@ The dashboard unifies multiple APIs, each hosted on a separate Ubuntu server, an
 ### workstation
 
 ```
-APP_NAME=TheServerManagerAPI
+NAME_APP=TheServerManagerAPI
 PORT=3000
 JWT_SECRET=SECRET_KEY
 ADMIN_EMAIL=["nrodrig1@gmail.com"]

@@ -38,7 +38,7 @@ Tests are located in `__tests__` subdirectories alongside source files (e.g., `s
 
 **Entry Point Flow:**
 
-1. `src/server.ts` - Initializes Express server, sets up global error handlers, overrides console logging with APP_NAME prefix
+1. `src/server.ts` - Initializes Express server, sets up global error handlers, overrides console logging with NAME_APP prefix
 2. `src/app.ts` - Configures middleware (CORS, JSON parsing, cookie-parser, morgan), registers routes, runs startup functions
 3. Routes are mounted at: `/users`, `/machines`, `/nginx`, `/admin`, `/registrar`, `/`
 

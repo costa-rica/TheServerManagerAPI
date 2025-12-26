@@ -11,14 +11,26 @@ const execAsync = promisify(exec);
 export async function executeSystemctlStatus(
   filename: string
 ): Promise<{ stdout: string; stderr: string }> {
+  const command = `sudo systemctl status ${filename}`;
+  console.log(`[services.ts] Executing command: ${command}`);
+
   try {
-    const { stdout, stderr } = await execAsync(
-      `sudo systemctl status ${filename}`
-    );
+    const { stdout, stderr } = await execAsync(command);
+    console.log(`[services.ts] Command succeeded for ${filename}`);
+    console.log(`[services.ts] stdout length: ${stdout.length} chars`);
+    if (stderr) {
+      console.warn(`[services.ts] stderr for ${filename}: ${stderr}`);
+    }
     return { stdout, stderr };
   } catch (error: any) {
     // systemctl returns non-zero exit code for inactive services
     // We still want to capture the output
+    console.warn(`[services.ts] Command failed with non-zero exit for ${filename}`);
+    console.log(`[services.ts] Error code: ${error.code}`);
+    console.log(`[services.ts] Error message: ${error.message}`);
+    console.log(`[services.ts] stdout length: ${error.stdout?.length || 0} chars`);
+    console.log(`[services.ts] stderr: ${error.stderr || 'none'}`);
+
     return {
       stdout: error.stdout || "",
       stderr: error.stderr || "",
@@ -32,15 +44,28 @@ export async function executeSystemctlStatus(
  * @returns The active status (e.g., "active (running)", "inactive (dead)")
  */
 export function parseServiceStatus(output: string): string {
+  console.log(`[services.ts] Parsing service status from ${output.length} chars of output`);
+
+  if (!output || output.trim().length === 0) {
+    console.warn(`[services.ts] Output is empty, cannot parse status`);
+    return "unknown";
+  }
+
   const lines = output.split("\n");
+  console.log(`[services.ts] Output has ${lines.length} lines`);
+
   for (const line of lines) {
     const trimmedLine = line.trim();
     if (trimmedLine.startsWith("Active:")) {
       // Extract everything after "Active: "
       const status = trimmedLine.replace(/^Active:\s*/, "");
+      console.log(`[services.ts] Found Active status: ${status}`);
       return status;
     }
   }
+
+  console.warn(`[services.ts] No "Active:" line found in output`);
+  console.log(`[services.ts] First 200 chars of output: ${output.substring(0, 200)}`);
   return "unknown";
 }
 
@@ -53,6 +78,13 @@ export function parseTimerStatus(output: string): {
   timerStatus: string;
   timerTrigger: string;
 } {
+  console.log(`[services.ts] Parsing timer status from ${output.length} chars of output`);
+
+  if (!output || output.trim().length === 0) {
+    console.warn(`[services.ts] Timer output is empty, cannot parse`);
+    return { timerStatus: "unknown", timerTrigger: "unknown" };
+  }
+
   const lines = output.split("\n");
   let timerStatus = "unknown";
   let timerTrigger = "unknown";
@@ -62,11 +94,18 @@ export function parseTimerStatus(output: string): {
 
     if (trimmedLine.startsWith("Active:")) {
       timerStatus = trimmedLine.replace(/^Active:\s*/, "");
+      console.log(`[services.ts] Found timer Active status: ${timerStatus}`);
     }
 
     if (trimmedLine.startsWith("Trigger:")) {
       timerTrigger = trimmedLine.replace(/^Trigger:\s*/, "");
+      console.log(`[services.ts] Found timer Trigger: ${timerTrigger}`);
     }
+  }
+
+  if (timerStatus === "unknown" || timerTrigger === "unknown") {
+    console.warn(`[services.ts] Could not find Active or Trigger in timer output`);
+    console.log(`[services.ts] First 200 chars of timer output: ${output.substring(0, 200)}`);
   }
 
   return { timerStatus, timerTrigger };
@@ -78,8 +117,11 @@ export function parseTimerStatus(output: string): {
  * @returns The service status string
  */
 export async function getServiceStatus(filename: string): Promise<string> {
+  console.log(`[services.ts] Getting service status for: ${filename}`);
   const { stdout } = await executeSystemctlStatus(filename);
-  return parseServiceStatus(stdout);
+  const status = parseServiceStatus(stdout);
+  console.log(`[services.ts] Final status for ${filename}: ${status}`);
+  return status;
 }
 
 /**
@@ -90,6 +132,9 @@ export async function getServiceStatus(filename: string): Promise<string> {
 export async function getTimerStatusAndTrigger(
   filenameTimer: string
 ): Promise<{ timerStatus: string; timerTrigger: string }> {
+  console.log(`[services.ts] Getting timer status for: ${filenameTimer}`);
   const { stdout } = await executeSystemctlStatus(filenameTimer);
-  return parseTimerStatus(stdout);
+  const result = parseTimerStatus(stdout);
+  console.log(`[services.ts] Final timer status for ${filenameTimer}: ${JSON.stringify(result)}`);
+  return result;
 }

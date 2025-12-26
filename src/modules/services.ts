@@ -138,3 +138,32 @@ export async function getTimerStatusAndTrigger(
   console.log(`[services.ts] Final timer status for ${filenameTimer}: ${JSON.stringify(result)}`);
   return result;
 }
+
+/**
+ * Execute a systemctl command to control a service (start, stop, restart, etc.)
+ * @param action - The systemctl action (start, stop, restart, reload, enable, disable)
+ * @param filename - The service filename (e.g., "myapp.service")
+ * @returns Object with success status and output
+ */
+export async function toggleService(
+  action: string,
+  filename: string
+): Promise<{ success: boolean; stdout: string; stderr: string; error?: string }> {
+  const command = `sudo systemctl ${action} ${filename}`;
+  console.log(`[services.ts] Executing toggle command: ${command}`);
+
+  try {
+    const { stdout, stderr } = await execAsync(command);
+    console.log(`[services.ts] Toggle command succeeded for ${action} ${filename}`);
+    return { success: true, stdout, stderr };
+  } catch (error: any) {
+    console.error(`[services.ts] Toggle command failed for ${action} ${filename}`);
+    console.error(`[services.ts] Error: ${error.message}`);
+    return {
+      success: false,
+      stdout: error.stdout || "",
+      stderr: error.stderr || "",
+      error: error.message,
+    };
+  }
+}

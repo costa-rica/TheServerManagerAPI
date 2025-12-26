@@ -36,3 +36,9 @@ PATH_PROJECT_RESOURCES=/Users/nick/Documents/_project_resources/TheServerManager
 PATH_ETC_NGINX_SITES_AVAILABLE=/Users/nick/Documents/_testData/nginx/sites-available
 PATH_TO_LOGS=/Users/nick/Documents/_testData/logs
 ```
+
+## Run tests
+
+```bash
+npm test -- src/models/__tests__/nginxFile.test.ts
+```

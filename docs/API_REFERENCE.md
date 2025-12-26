@@ -794,20 +794,20 @@ curl --location --request PATCH 'http://localhost:3000/machines/a3f2b1c4-5d6e-7f
 
 ---
 
-### DELETE /machines/:id
+### DELETE /machines/:publicId
 
-Delete a machine from the system by its ID.
+Delete a machine from the system by its public ID.
 
 **Authentication:** Required (JWT token)
 
 **URL Parameters:**
 
-- `id` (string, required) - MongoDB ObjectId of the machine to delete
+- `publicId` (string, required) - The public ID of the machine to delete
 
 **Request:**
 
 ```http
-DELETE /machines/507f1f77bcf86cd799439011 HTTP/1.1
+DELETE /machines/a3f2b1c4-5d6e-7f8a-9b0c-1d2e3f4a5b6c HTTP/1.1
 Host: localhost:3000
 Authorization: Bearer <your_jwt_token>
 ```
@@ -815,7 +815,7 @@ Authorization: Bearer <your_jwt_token>
 **Request Example:**
 
 ```bash
-curl --location --request DELETE 'http://localhost:3000/machines/507f1f77bcf86cd799439011' \
+curl --location --request DELETE 'http://localhost:3000/machines/a3f2b1c4-5d6e-7f8a-9b0c-1d2e3f4a5b6c' \
 --header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
 ```
 
@@ -823,11 +823,23 @@ curl --location --request DELETE 'http://localhost:3000/machines/507f1f77bcf86cd
 
 ```json
 {
-  "message": "Machine deleted successfully"
+  "message": "Machine deleted successfully",
+  "deletedMachine": {
+    "publicId": "a3f2b1c4-5d6e-7f8a-9b0c-1d2e3f4a5b6c",
+    "machineName": "ubuntu-server-01"
+  }
 }
 ```
 
 **Error Responses:**
+
+**400 Bad Request - Invalid publicId:**
+
+```json
+{
+  "error": "publicId parameter must be a non-empty string"
+}
+```
 
 **401 Unauthorized - Missing or Invalid Token:**
 

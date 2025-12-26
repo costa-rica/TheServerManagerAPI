@@ -272,17 +272,30 @@ router.patch("/:publicId", authenticateToken, async (req: Request, res: Response
   }
 });
 
-// 🔹 DELETE /machines/:id: Delete a machine
-router.delete("/:id", authenticateToken, async (req, res) => {
+// 🔹 DELETE /machines/:publicId: Delete a machine
+router.delete("/:publicId", authenticateToken, async (req, res) => {
   try {
-    const { id } = req.params;
+    const { publicId } = req.params;
 
-    const machine = await Machine.findByIdAndDelete(id);
+    // Validate publicId parameter
+    if (!publicId || typeof publicId !== "string" || publicId.trim() === "") {
+      return res.status(400).json({
+        error: "publicId parameter must be a non-empty string",
+      });
+    }
+
+    const machine = await Machine.findOneAndDelete({ publicId });
     if (!machine) {
       return res.status(404).json({ error: "Machine not found" });
     }
 
-    res.status(200).json({ message: "Machine deleted successfully" });
+    res.status(200).json({
+      message: "Machine deleted successfully",
+      deletedMachine: {
+        publicId: machine.publicId,
+        machineName: machine.machineName,
+      }
+    });
   } catch (error) {
     console.error("Error deleting machine:", error);
     res.status(500).json({ error: "Failed to delete machine" });

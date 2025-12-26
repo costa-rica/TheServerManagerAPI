@@ -28,7 +28,7 @@ Each subsection is headed by and endpoint name. Each sub section will contain th
 
 When the “NODE_ENV=production” .env variable is not set to “production”, the app will not be running on a Ubuntu server so endpoints interacting with the Ubuntu OS will need to return a corresponding response.
 
-### GET /
+### GET /services/
 
 This endpoint will return the array of the services running on the server. It will return an array called servicesStatusArray. The endpoint will interact with the Ubuntu OS to determine various status elements for each application.
 servicesStatusArray:[
@@ -69,7 +69,7 @@ Here is an example of making the timer request:
    Triggers: ● personalweb03-services.service
 ```
 
-### POST /{serviceFilename}/{toggleStatus}
+### POST services/{serviceFilename}/{toggleStatus}
 
 This endpoint will be responsible for turning on and off the service in the params of the request. This endpoint will make the Ubuntu OS commands “sudo systemctl start personalweb03-api.service” or “sudo systemctl stop personalweb03-api.service”.
 
@@ -78,7 +78,7 @@ Therefore the serviceFilename will include the filename of the service which wil
 The response will be a service element that looks like. This will include the name, which is the name of the application
 {name: string, filename: string, status: string, timerStatus: string (optional), timerTrigger: string (optional)}]
 
-### GET /logs/{name}
+### GET services/logs/{name}
 
 This endpoint will send the logs for the corresponding service. In the corresponding machine document for this server there is a pathToLogs property that will have the path on the server that log files can be found. The log files will have the form {name}.log, where name comes from the name params.
 

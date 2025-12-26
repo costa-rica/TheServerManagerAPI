@@ -17,6 +17,7 @@ import {
 import indexRouter from "./routes/index";
 import usersRouter from "./routes/users";
 import machinesRouter from "./routes/machines";
+import servicesRouter from "./routes/services";
 import nginxRouter from "./routes/nginx";
 import adminRouter from "./routes/admin";
 import registrarRouter from "./routes/registrar";
@@ -40,6 +41,7 @@ app.use(
 // Register routes
 app.use("/users", usersRouter);
 app.use("/machines", machinesRouter);
+app.use("/services", servicesRouter);
 app.use("/nginx", nginxRouter);
 app.use("/admin", adminRouter);
 app.use("/registrar", registrarRouter);

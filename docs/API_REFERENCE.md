@@ -869,6 +869,113 @@ curl --location --request DELETE 'http://localhost:3000/machines/a3f2b1c4-5d6e-7
 
 ## Services Routes
 
+### GET /services
+
+Get the status of all services running on the current server. This endpoint queries Ubuntu systemd to retrieve real-time status information for each service configured in the machine's servicesArray.
+
+**Authentication:** Required (JWT token)
+
+**Environment:** Production only (Ubuntu OS with systemd)
+
+**Request:**
+
+```http
+GET /services HTTP/1.1
+Host: localhost:3000
+Authorization: Bearer <your_jwt_token>
+```
+
+**Request Example:**
+
+```bash
+curl --location 'http://localhost:3000/services' \
+--header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+**Success Response (200 OK):**
+
+```json
+{
+  "servicesStatusArray": [
+    {
+      "name": "PersonalWeb03 API",
+      "filename": "personalweb03-api.service",
+      "status": "active (running) since Thu 2025-12-25 10:30:00 UTC; 2h ago"
+    },
+    {
+      "name": "PersonalWeb03 Services",
+      "filename": "personalweb03-services.service",
+      "status": "inactive (dead) since Thu 2025-12-25 19:19:14 UTC; 5min ago",
+      "timerStatus": "active (waiting) since Thu 2025-12-25 19:19:04 UTC; 4min 40s ago",
+      "timerTrigger": "Thu 2025-12-25 23:00:00 UTC; 3h 36min left"
+    }
+  ]
+}
+```
+
+**Response Fields:**
+
+- `servicesStatusArray` - Array of service status objects
+  - `name` (string) - Human-readable service name from machine's servicesArray
+  - `filename` (string) - The systemd service filename
+  - `status` (string) - Active status from `systemctl status {filename}` (e.g., "active (running)", "inactive (dead)", "failed")
+  - `timerStatus` (string, optional) - Active status of the timer if filenameTimer is configured
+  - `timerTrigger` (string, optional) - Next trigger time if filenameTimer is configured
+
+**Notes:**
+
+- This endpoint retrieves the machine's servicesArray using the OS hostname (from `getMachineInfo()`)
+- For each service, executes `sudo systemctl status {filename}` to get real-time status
+- If a service has `filenameTimer` configured, also executes `sudo systemctl status {filenameTimer}`
+- Parses systemctl output to extract "Active:" and "Trigger:" fields
+- Services with errors return `status: "unknown"` but don't fail the entire request
+- Only works when `NODE_ENV=production` on Ubuntu servers with systemd
+
+**Error Responses:**
+
+**400 Bad Request - Not Production Environment:**
+
+```json
+{
+  "error": "This endpoint only works in production environment on Ubuntu OS"
+}
+```
+
+**401 Unauthorized - Missing or Invalid Token:**
+
+```json
+{
+  "error": "Access denied. No token provided."
+}
+```
+
+**404 Not Found - Machine Not Found:**
+
+```json
+{
+  "error": "Machine with name \"ubuntu-server-01\" not found in database"
+}
+```
+
+**404 Not Found - No Services Configured:**
+
+```json
+{
+  "error": "Machine \"ubuntu-server-01\" has no services configured in servicesArray"
+}
+```
+
+**500 Internal Server Error:**
+
+```json
+{
+  "error": "Failed to fetch services status",
+  "details": "Error details here"
+}
+```
+
+---
+
 ## Nginx Routes
 
 ### GET /nginx

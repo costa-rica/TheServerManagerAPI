@@ -24,10 +24,7 @@ const machineSchema = new mongoose.Schema(
         type: String,
       },
     ],
-    pathToLogs: {
-      type: String,
-      required: true,
-    },
+
     servicesArray: [
       {
         name: {
@@ -45,6 +42,10 @@ const machineSchema = new mongoose.Schema(
         port: {
           type: Number,
           required: false,
+        },
+        pathToLogs: {
+          type: String,
+          required: true,
         },
       },
     ],

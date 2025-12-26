@@ -439,7 +439,7 @@ curl --location 'http://localhost:3000/machines' \
 
 ### POST /machines
 
-Register a new machine in the system. Automatically adds the machine name and local IP address from OS.
+Register a new machine in the system. Automatically adds the machine name and local IP address from OS, and auto-generates a unique publicId.
 
 **Authentication:** Required (JWT token)
 
@@ -449,19 +449,59 @@ Register a new machine in the system. Automatically adds the machine name and lo
 {
   "urlFor404Api": "http://192.168.1.100:8000",
   "nginxStoragePathOptions": ["/var/www", "/home/user/sites"],
-  "userHomeDir": "/home/ubuntu"
+  "servicesArray": [
+    {
+      "name": "PersonalWeb03 API",
+      "filename": "personalweb03-api.service",
+      "pathToLogs": "/home/ubuntu/personalweb03-api/logs",
+      "filenameTimer": "personalweb03-api.timer",
+      "port": 3001
+    },
+    {
+      "name": "PersonalWeb03 Services",
+      "filename": "personalweb03-services.service",
+      "pathToLogs": "/home/ubuntu/personalweb03-services/logs",
+      "filenameTimer": "personalweb03-services.timer"
+    }
+  ]
 }
 ```
+
+**Field Descriptions:**
+
+- `urlFor404Api` (string, required) - URL for the 404 API endpoint
+- `nginxStoragePathOptions` (array of strings, required) - Array of nginx storage path options
+- `servicesArray` (array, optional) - Array of service configurations
+  - `name` (string, required) - Human-readable name of the service
+  - `filename` (string, required) - The systemd service filename (e.g., "app.service")
+  - `pathToLogs` (string, required) - Path to the service's log directory
+  - `filenameTimer` (string, optional) - The systemd timer filename if the service uses a timer
+  - `port` (number, optional) - Port number the service runs on
 
 **Request Example:**
 
 ```bash
 curl --location 'http://localhost:3000/machines' \
 --header 'Content-Type: application/json' \
+--header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \
 --data-raw '{
   "urlFor404Api": "http://192.168.1.100:8000",
   "nginxStoragePathOptions": ["/var/www", "/home/user/sites"],
-  "userHomeDir": "/home/ubuntu"
+  "servicesArray": [
+    {
+      "name": "PersonalWeb03 API",
+      "filename": "personalweb03-api.service",
+      "pathToLogs": "/home/ubuntu/personalweb03-api/logs",
+      "filenameTimer": "personalweb03-api.timer",
+      "port": 3001
+    },
+    {
+      "name": "PersonalWeb03 Services",
+      "filename": "personalweb03-services.service",
+      "pathToLogs": "/home/ubuntu/personalweb03-services/logs",
+      "filenameTimer": "personalweb03-services.timer"
+    }
+  ]
 }'
 ```
 
@@ -471,12 +511,27 @@ curl --location 'http://localhost:3000/machines' \
 {
   "message": "Machine created successfully",
   "machine": {
+    "publicId": "a3f2b1c4-5d6e-7f8a-9b0c-1d2e3f4a5b6c",
     "id": "507f1f77bcf86cd799439011",
     "machineName": "ubuntu-server-01",
     "urlFor404Api": "http://192.168.1.100:8000",
     "localIpAddress": "192.168.1.100",
-    "userHomeDir": "/home/ubuntu",
     "nginxStoragePathOptions": ["/var/www", "/home/user/sites"],
+    "servicesArray": [
+      {
+        "name": "PersonalWeb03 API",
+        "filename": "personalweb03-api.service",
+        "pathToLogs": "/home/ubuntu/personalweb03-api/logs",
+        "filenameTimer": "personalweb03-api.timer",
+        "port": 3001
+      },
+      {
+        "name": "PersonalWeb03 Services",
+        "filename": "personalweb03-services.service",
+        "pathToLogs": "/home/ubuntu/personalweb03-services/logs",
+        "filenameTimer": "personalweb03-services.timer"
+      }
+    ],
     "createdAt": "2025-10-23T10:30:00.000Z",
     "updatedAt": "2025-10-23T10:30:00.000Z"
   }
@@ -489,7 +544,7 @@ curl --location 'http://localhost:3000/machines' \
 
 ```json
 {
-  "error": "Missing urlFor404Api, nginxStoragePathOptions, userHomeDir"
+  "error": "Missing urlFor404Api, nginxStoragePathOptions"
 }
 ```
 
@@ -498,6 +553,38 @@ curl --location 'http://localhost:3000/machines' \
 ```json
 {
   "error": "nginxStoragePathOptions must be an array of strings"
+}
+```
+
+**400 Bad Request - Invalid servicesArray:**
+
+```json
+{
+  "error": "servicesArray must be an array"
+}
+```
+
+**400 Bad Request - Invalid Service Object:**
+
+```json
+{
+  "error": "Service at index 0 is missing required fields: name, filename, pathToLogs"
+}
+```
+
+**400 Bad Request - Invalid Service Field Types:**
+
+```json
+{
+  "error": "Service at index 0: name, filename, and pathToLogs must be strings"
+}
+```
+
+**400 Bad Request - Invalid Optional Fields:**
+
+```json
+{
+  "error": "Service at index 0: port must be a number"
 }
 ```
 

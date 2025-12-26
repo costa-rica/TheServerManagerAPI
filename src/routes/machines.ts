@@ -1,5 +1,6 @@
 import express from "express";
 import type { Request, Response } from "express";
+import { randomUUID } from "crypto";
 import { Machine } from "../models/machine";
 import { checkBodyReturnMissing } from "../modules/common";
 import { getMachineInfo } from "../modules/machines";
@@ -36,7 +37,7 @@ router.get("/", authenticateToken, async (req, res) => {
 // 🔹 POST /machines: Create a new machine
 router.post("/", authenticateToken, async (req: Request, res: Response) => {
   try {
-    const { urlFor404Api, nginxStoragePathOptions } = req.body;
+    const { urlFor404Api, nginxStoragePathOptions, servicesArray } = req.body;
 
     // Validate required fields
     const { isValid, missingKeys } = checkBodyReturnMissing(req.body, [
@@ -57,25 +58,81 @@ router.post("/", authenticateToken, async (req: Request, res: Response) => {
       });
     }
 
+    // Validate servicesArray if provided
+    if (servicesArray !== undefined) {
+      if (!Array.isArray(servicesArray)) {
+        return res.status(400).json({
+          error: "servicesArray must be an array",
+        });
+      }
+
+      // Validate each service object
+      for (let i = 0; i < servicesArray.length; i++) {
+        const service = servicesArray[i];
+        const { isValid: serviceValid, missingKeys: serviceMissingKeys } =
+          checkBodyReturnMissing(service, ["name", "filename", "pathToLogs"]);
+
+        if (!serviceValid) {
+          return res.status(400).json({
+            error: `Service at index ${i} is missing required fields: ${serviceMissingKeys.join(", ")}`,
+          });
+        }
+
+        // Validate that required fields are strings
+        if (
+          typeof service.name !== "string" ||
+          typeof service.filename !== "string" ||
+          typeof service.pathToLogs !== "string"
+        ) {
+          return res.status(400).json({
+            error: `Service at index ${i}: name, filename, and pathToLogs must be strings`,
+          });
+        }
+
+        // Validate optional fields if provided
+        if (
+          service.filenameTimer !== undefined &&
+          typeof service.filenameTimer !== "string"
+        ) {
+          return res.status(400).json({
+            error: `Service at index ${i}: filenameTimer must be a string`,
+          });
+        }
+
+        if (service.port !== undefined && typeof service.port !== "number") {
+          return res.status(400).json({
+            error: `Service at index ${i}: port must be a number`,
+          });
+        }
+      }
+    }
+
     // Get machine name and local IP address from OS
     const { machineName, localIpAddress } = getMachineInfo();
 
+    // Auto-generate publicId
+    const publicId = randomUUID();
+
     // Create the machine document
     const machine = await Machine.create({
+      publicId,
       machineName,
       urlFor404Api,
       localIpAddress,
       nginxStoragePathOptions,
+      servicesArray: servicesArray || [],
     });
 
     res.status(201).json({
       message: "Machine created successfully",
       machine: {
+        publicId: machine.publicId,
         id: machine._id,
         machineName: machine.machineName,
         urlFor404Api: machine.urlFor404Api,
         localIpAddress: machine.localIpAddress,
         nginxStoragePathOptions: machine.nginxStoragePathOptions,
+        servicesArray: machine.servicesArray,
         createdAt: machine.createdAt,
         updatedAt: machine.updatedAt,
       },

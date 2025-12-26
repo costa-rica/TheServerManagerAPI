@@ -1,18 +1,15 @@
-import app from "./app"; // Import the configured app
+// Load environment variables first
+import dotenv from "dotenv";
+dotenv.config();
+
+// Initialize Winston logger (must be imported before other modules to intercept console methods)
+// Import with side-effect syntax to ensure it's not stripped during compilation
+import "./config/logger";
+
+// Import the configured app after logger is initialized
+import app from "./app";
 
 const PORT = parseInt(process.env.PORT || "3000", 10);
-const NAME_APP = process.env.NAME_APP || "ExpressAPI02"; // Fallback if NAME_APP is undefined
-
-// Override console.log and console.error to include the app name
-console.log = (
-  (log) => (message: any) =>
-    log(`[${NAME_APP}] ${message}`)
-)(console.log);
-
-console.error = (
-  (log) => (message: any) =>
-    log(`[${NAME_APP}] ${message}`)
-)(console.error);
 
 // Capture stack traces for errors
 process.on("uncaughtException", (err: Error) => {

@@ -143,6 +143,135 @@ router.post("/", authenticateToken, async (req: Request, res: Response) => {
   }
 });
 
+// 🔹 PATCH /machines/:publicId: Update a machine
+router.patch("/:publicId", authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const { publicId } = req.params;
+    const { urlFor404Api, nginxStoragePathOptions, servicesArray } = req.body;
+
+    // Validate publicId parameter
+    if (!publicId || typeof publicId !== "string" || publicId.trim() === "") {
+      return res.status(400).json({
+        error: "publicId parameter must be a non-empty string",
+      });
+    }
+
+    // Find the machine by publicId
+    const machine = await Machine.findOne({ publicId });
+    if (!machine) {
+      return res.status(404).json({
+        error: "Machine not found",
+      });
+    }
+
+    // Build update object with only provided fields
+    const updates: any = {};
+
+    // Validate and add urlFor404Api if provided
+    if (urlFor404Api !== undefined) {
+      if (typeof urlFor404Api !== "string" || urlFor404Api.trim() === "") {
+        return res.status(400).json({
+          error: "urlFor404Api must be a non-empty string",
+        });
+      }
+      updates.urlFor404Api = urlFor404Api;
+    }
+
+    // Validate and add nginxStoragePathOptions if provided
+    if (nginxStoragePathOptions !== undefined) {
+      if (!Array.isArray(nginxStoragePathOptions)) {
+        return res.status(400).json({
+          error: "nginxStoragePathOptions must be an array of strings",
+        });
+      }
+      updates.nginxStoragePathOptions = nginxStoragePathOptions;
+    }
+
+    // Validate and add servicesArray if provided
+    if (servicesArray !== undefined) {
+      if (!Array.isArray(servicesArray)) {
+        return res.status(400).json({
+          error: "servicesArray must be an array",
+        });
+      }
+
+      // Validate each service object
+      for (let i = 0; i < servicesArray.length; i++) {
+        const service = servicesArray[i];
+        const { isValid: serviceValid, missingKeys: serviceMissingKeys } =
+          checkBodyReturnMissing(service, ["name", "filename", "pathToLogs"]);
+
+        if (!serviceValid) {
+          return res.status(400).json({
+            error: `Service at index ${i} is missing required fields: ${serviceMissingKeys.join(", ")}`,
+          });
+        }
+
+        // Validate that required fields are strings
+        if (
+          typeof service.name !== "string" ||
+          typeof service.filename !== "string" ||
+          typeof service.pathToLogs !== "string"
+        ) {
+          return res.status(400).json({
+            error: `Service at index ${i}: name, filename, and pathToLogs must be strings`,
+          });
+        }
+
+        // Validate optional fields if provided
+        if (
+          service.filenameTimer !== undefined &&
+          typeof service.filenameTimer !== "string"
+        ) {
+          return res.status(400).json({
+            error: `Service at index ${i}: filenameTimer must be a string`,
+          });
+        }
+
+        if (service.port !== undefined && typeof service.port !== "number") {
+          return res.status(400).json({
+            error: `Service at index ${i}: port must be a number`,
+          });
+        }
+      }
+
+      updates.servicesArray = servicesArray;
+    }
+
+    // Check if at least one field is being updated
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({
+        error: "At least one field must be provided for update (urlFor404Api, nginxStoragePathOptions, or servicesArray)",
+      });
+    }
+
+    // Update the machine
+    const updatedMachine = await Machine.findOneAndUpdate(
+      { publicId },
+      updates,
+      { new: true, runValidators: true }
+    );
+
+    res.status(200).json({
+      message: "Machine updated successfully",
+      machine: {
+        publicId: updatedMachine!.publicId,
+        id: updatedMachine!._id,
+        machineName: updatedMachine!.machineName,
+        urlFor404Api: updatedMachine!.urlFor404Api,
+        localIpAddress: updatedMachine!.localIpAddress,
+        nginxStoragePathOptions: updatedMachine!.nginxStoragePathOptions,
+        servicesArray: updatedMachine!.servicesArray,
+        createdAt: updatedMachine!.createdAt,
+        updatedAt: updatedMachine!.updatedAt,
+      },
+    });
+  } catch (error) {
+    console.error("Error updating machine:", error);
+    res.status(500).json({ error: "Failed to update machine" });
+  }
+});
+
 // 🔹 DELETE /machines/:id: Delete a machine
 router.delete("/:id", authenticateToken, async (req, res) => {
   try {

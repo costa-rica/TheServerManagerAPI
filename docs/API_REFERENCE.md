@@ -598,6 +598,202 @@ curl --location 'http://localhost:3000/machines' \
 
 ---
 
+### PATCH /machines/:publicId
+
+Update an existing machine's configuration. Supports partial updates - you can update any combination of the allowed fields.
+
+**Authentication:** Required (JWT token)
+
+**URL Parameters:**
+
+- `publicId` (string, required) - The public ID of the machine to update
+
+**Request Body (all fields optional, but at least one required):**
+
+```json
+{
+  "urlFor404Api": "http://192.168.1.100:8080",
+  "nginxStoragePathOptions": ["/var/www", "/home/user/sites", "/etc/nginx/sites-available"],
+  "servicesArray": [
+    {
+      "name": "PersonalWeb03 API",
+      "filename": "personalweb03-api.service",
+      "pathToLogs": "/home/ubuntu/personalweb03-api/logs",
+      "filenameTimer": "personalweb03-api.timer",
+      "port": 3001
+    }
+  ]
+}
+```
+
+**Updatable Fields:**
+
+- `urlFor404Api` (string, optional) - URL for the 404 API endpoint
+- `nginxStoragePathOptions` (array of strings, optional) - Array of nginx storage path options
+- `servicesArray` (array, optional) - Array of service configurations (same validation as POST)
+  - `name` (string, required) - Human-readable name of the service
+  - `filename` (string, required) - The systemd service filename (e.g., "app.service")
+  - `pathToLogs` (string, required) - Path to the service's log directory
+  - `filenameTimer` (string, optional) - The systemd timer filename if the service uses a timer
+  - `port` (number, optional) - Port number the service runs on
+
+**Non-Updatable Fields:**
+
+- `publicId` - Auto-generated UUID identifier (cannot be changed)
+- `machineName` - Auto-detected from OS (cannot be changed)
+- `localIpAddress` - Auto-detected from OS (cannot be changed)
+
+**Request Example (Update single field):**
+
+```bash
+curl --location --request PATCH 'http://localhost:3000/machines/a3f2b1c4-5d6e-7f8a-9b0c-1d2e3f4a5b6c' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \
+--data-raw '{
+  "urlFor404Api": "http://192.168.1.100:8080"
+}'
+```
+
+**Request Example (Update multiple fields):**
+
+```bash
+curl --location --request PATCH 'http://localhost:3000/machines/a3f2b1c4-5d6e-7f8a-9b0c-1d2e3f4a5b6c' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \
+--data-raw '{
+  "urlFor404Api": "http://192.168.1.100:8080",
+  "nginxStoragePathOptions": ["/var/www", "/home/user/sites", "/etc/nginx/sites-available"],
+  "servicesArray": [
+    {
+      "name": "PersonalWeb03 API",
+      "filename": "personalweb03-api.service",
+      "pathToLogs": "/home/ubuntu/personalweb03-api/logs",
+      "filenameTimer": "personalweb03-api.timer",
+      "port": 3001
+    }
+  ]
+}'
+```
+
+**Success Response (200 OK):**
+
+```json
+{
+  "message": "Machine updated successfully",
+  "machine": {
+    "publicId": "a3f2b1c4-5d6e-7f8a-9b0c-1d2e3f4a5b6c",
+    "id": "507f1f77bcf86cd799439011",
+    "machineName": "ubuntu-server-01",
+    "urlFor404Api": "http://192.168.1.100:8080",
+    "localIpAddress": "192.168.1.100",
+    "nginxStoragePathOptions": ["/var/www", "/home/user/sites", "/etc/nginx/sites-available"],
+    "servicesArray": [
+      {
+        "name": "PersonalWeb03 API",
+        "filename": "personalweb03-api.service",
+        "pathToLogs": "/home/ubuntu/personalweb03-api/logs",
+        "filenameTimer": "personalweb03-api.timer",
+        "port": 3001
+      }
+    ],
+    "createdAt": "2025-10-23T10:30:00.000Z",
+    "updatedAt": "2025-12-25T14:22:00.000Z"
+  }
+}
+```
+
+**Error Responses:**
+
+**400 Bad Request - Invalid publicId:**
+
+```json
+{
+  "error": "publicId parameter must be a non-empty string"
+}
+```
+
+**400 Bad Request - No Fields Provided:**
+
+```json
+{
+  "error": "At least one field must be provided for update (urlFor404Api, nginxStoragePathOptions, or servicesArray)"
+}
+```
+
+**400 Bad Request - Invalid urlFor404Api:**
+
+```json
+{
+  "error": "urlFor404Api must be a non-empty string"
+}
+```
+
+**400 Bad Request - Invalid nginxStoragePathOptions:**
+
+```json
+{
+  "error": "nginxStoragePathOptions must be an array of strings"
+}
+```
+
+**400 Bad Request - Invalid servicesArray:**
+
+```json
+{
+  "error": "servicesArray must be an array"
+}
+```
+
+**400 Bad Request - Invalid Service Object:**
+
+```json
+{
+  "error": "Service at index 0 is missing required fields: name, filename, pathToLogs"
+}
+```
+
+**400 Bad Request - Invalid Service Field Types:**
+
+```json
+{
+  "error": "Service at index 0: name, filename, and pathToLogs must be strings"
+}
+```
+
+**400 Bad Request - Invalid Optional Fields:**
+
+```json
+{
+  "error": "Service at index 0: port must be a number"
+}
+```
+
+**401 Unauthorized - Missing or Invalid Token:**
+
+```json
+{
+  "error": "Access denied. No token provided."
+}
+```
+
+**404 Not Found - Machine Not Found:**
+
+```json
+{
+  "error": "Machine not found"
+}
+```
+
+**500 Internal Server Error:**
+
+```json
+{
+  "error": "Failed to update machine"
+}
+```
+
+---
+
 ### DELETE /machines/:id
 
 Delete a machine from the system by its ID.

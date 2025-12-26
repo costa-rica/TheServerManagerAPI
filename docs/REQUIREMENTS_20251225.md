@@ -18,9 +18,9 @@ The POST /machines endpoint needs to be modified so the user can input the servi
 
 There will be a servicesArray passed in the body of the request. Each element in the array will have name, filename, and pathToLogs that are required and both strings. Then optionally, there will be a filenameTimer (string) and port (Number).
 
-### PATCH /machine/{publicId}
+### PATCH /machines/{publicId}
 
-This will allow for updating the machines collection properties. We can enter nginxStoragePathOptions (array) , pathToLogs, urlFor404Api, localIpAddress, and servicesArray. The machineName will not be updatable.
+This will allow for updating the machines collection properties. We can enter nginxStoragePathOptions (array) , urlFor404Api, and servicesArray. The machineName will not be updatable.
 
 ## Services Router
 

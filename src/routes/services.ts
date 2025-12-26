@@ -15,6 +15,7 @@ router.use(authenticateToken);
 
 // 🔹 GET /services: Get all services running on this server
 router.get("/", async (req: Request, res: Response) => {
+  console.log("services.ts: GET /services");
   try {
     // Check if running in production/Ubuntu environment
     if (process.env.NODE_ENV !== "production") {

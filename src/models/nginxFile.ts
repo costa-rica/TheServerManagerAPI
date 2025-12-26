@@ -20,14 +20,12 @@ const nginxFileSchema = new mongoose.Schema(
         type: String,
       },
     ],
-    appHostServerMachineId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Machine",
+    appHostServerMachinePublicId: {
+      type: String,
       required: true,
     },
-    nginxHostServerMachineId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Machine",
+    nginxHostServerMachinePublicId: {
+      type: String,
       required: true,
     },
     framework: {

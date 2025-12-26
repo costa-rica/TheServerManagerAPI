@@ -1,5 +1,6 @@
 import express from "express";
 import type { Request, Response } from "express";
+import { randomUUID } from "crypto";
 import { authenticateToken } from "../modules/authentication";
 import { NginxFile } from "../models/nginxFile";
 import { Machine } from "../models/machine";
@@ -21,9 +22,7 @@ router.use(authenticateToken);
 // 🔹 GET /nginx: Get all nginx config files
 router.get("/", async (req: Request, res: Response) => {
 	try {
-		const nginxFiles = await NginxFile.find()
-			.populate("appHostServerMachineId")
-			.populate("nginxHostServerMachineId");
+		const nginxFiles = await NginxFile.find();
 
 		res.json(nginxFiles);
 	} catch (error) {
@@ -85,7 +84,7 @@ router.get("/scan-nginx-dir", async (req: Request, res: Response) => {
 					continue;
 				}
 
-				// Look up appHostServerMachineId
+				// Look up appHostServerMachinePublicId
 				let appHostMachine = null;
 				if (parsed.localIpAddress) {
 					appHostMachine = await Machine.findOne({
@@ -112,11 +111,12 @@ router.get("/scan-nginx-dir", async (req: Request, res: Response) => {
 				} else {
 					// Prepare new entry data
 					const newEntryData = {
+						publicId: randomUUID(),
 						serverName: primaryServerName,
 						serverNameArrayOfAdditionalServerNames: parsed.serverNames.slice(1),
 						portNumber: parsed.listenPort || 0,
-						appHostServerMachineId: appHostMachine?._id || null,
-						nginxHostServerMachineId: nginxHostMachine._id,
+						appHostServerMachinePublicId: appHostMachine?.publicId || null,
+						nginxHostServerMachinePublicId: nginxHostMachine.publicId,
 						framework: parsed.framework,
 						storeDirectory: nginxDir,
 					};
@@ -157,7 +157,7 @@ router.get("/scan-nginx-dir", async (req: Request, res: Response) => {
 			duplicates: duplicates.length,
 			errors: errors.length,
 			currentMachineIp,
-			nginxHostMachineId: nginxHostMachine._id,
+			nginxHostMachinePublicId: nginxHostMachine.publicId,
 			reportPath,
 			newEntries,
 			duplicateEntries: duplicates,
@@ -181,7 +181,7 @@ router.post("/create-config-file", async (req: Request, res: Response) => {
 		const { isValid, missingKeys } = checkBodyReturnMissing(req.body, [
 			"templateFileName",
 			"serverNamesArray",
-			"appHostServerMachineId",
+			"appHostServerMachinePublicId",
 			"portNumber",
 			"saveDestination",
 		]);
@@ -195,7 +195,7 @@ router.post("/create-config-file", async (req: Request, res: Response) => {
 		const {
 			templateFileName,
 			serverNamesArray,
-			appHostServerMachineId,
+			appHostServerMachinePublicId,
 			portNumber,
 			saveDestination,
 		} = req.body;
@@ -242,18 +242,23 @@ router.post("/create-config-file", async (req: Request, res: Response) => {
 				.json({ error: "All server names must be non-empty strings" });
 		}
 
-		// Validate appHostServerMachineId (valid ObjectId)
-		if (!mongoose.Types.ObjectId.isValid(appHostServerMachineId)) {
-			return res
-				.status(400)
-				.json({ error: "appHostServerMachineId must be a valid ObjectId" });
+		// Validate appHostServerMachinePublicId (non-empty string)
+		if (
+			typeof appHostServerMachinePublicId !== "string" ||
+			appHostServerMachinePublicId.trim() === ""
+		) {
+			return res.status(400).json({
+				error: "appHostServerMachinePublicId must be a non-empty string",
+			});
 		}
 
 		// Verify machine exists in database
-		const machine = await Machine.findById(appHostServerMachineId);
+		const machine = await Machine.findOne({
+			publicId: appHostServerMachinePublicId,
+		});
 		if (!machine) {
 			return res.status(400).json({
-				error: "Machine with specified appHostServerMachineId not found",
+				error: "Machine with specified appHostServerMachinePublicId not found",
 			});
 		}
 
@@ -325,13 +330,17 @@ router.post("/create-config-file", async (req: Request, res: Response) => {
 		// Use saveDestination as the storeDirectory
 		const storeDirectory = saveDestination;
 
+		// Auto-generate publicId
+		const publicId = randomUUID();
+
 		// Create NginxFile database record
 		const nginxFileRecord = await NginxFile.create({
+			publicId,
 			serverName: serverNamesArray[0],
 			serverNameArrayOfAdditionalServerNames: serverNamesArray.slice(1),
 			portNumber,
-			appHostServerMachineId,
-			nginxHostServerMachineId: nginxHostMachine._id,
+			appHostServerMachinePublicId,
+			nginxHostServerMachinePublicId: nginxHostMachine.publicId,
 			framework,
 			storeDirectory,
 		});

@@ -239,3 +239,124 @@ POST /services/personalweb03-api.service/enable
 ```
 
 ---
+
+## GET /services/logs/:name
+
+Retrieve the log file for a specific service.
+
+**Authentication:** Required (JWT token)
+
+**Environment:** Production only (Ubuntu OS)
+
+**URL Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `name` | String | Yes | Service name (matches the `name` field in servicesArray) |
+
+**Sample Request:**
+
+```bash
+curl --location 'http://localhost:3000/services/logs/PersonalWeb03 API' \
+--header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+**Success Response (200 OK):**
+
+```
+Content-Type: text/plain
+
+[2025-12-26 10:30:00] INFO: Application started
+[2025-12-26 10:30:01] INFO: Connected to database
+[2025-12-26 10:30:02] INFO: Server listening on port 3001
+[2025-12-26 11:15:23] INFO: Request received: GET /api/users
+[2025-12-26 11:15:24] INFO: Response sent: 200 OK
+```
+
+**Error Response (400 Bad Request - Not Production):**
+
+```json
+{
+  "error": "This endpoint only works in production environment on Ubuntu OS"
+}
+```
+
+**Error Response (404 Not Found - Machine Not Found):**
+
+```json
+{
+  "error": "Machine with name \"ubuntu-server-01\" not found in database"
+}
+```
+
+**Error Response (404 Not Found - No Services):**
+
+```json
+{
+  "error": "Machine \"ubuntu-server-01\" has no services configured in servicesArray"
+}
+```
+
+**Error Response (404 Not Found - Service Not Configured):**
+
+```json
+{
+  "error": "Service with name \"PersonalWeb03 API\" is not configured in this machine's servicesArray"
+}
+```
+
+**Error Response (404 Not Found - Log Directory Not Found):**
+
+```json
+{
+  "error": "Log directory does not exist: /home/ubuntu/personalweb03-api/logs"
+}
+```
+
+**Error Response (404 Not Found - Log File Not Found):**
+
+```json
+{
+  "error": "Log file does not exist: /home/ubuntu/personalweb03-api/logs/PersonalWeb03 API.log"
+}
+```
+
+**Error Response (404 Not Found - Permission Error):**
+
+```json
+{
+  "error": "Permission error or failed to read log file: EACCES: permission denied"
+}
+```
+
+**Error Response (500 Internal Server Error):**
+
+```json
+{
+  "error": "Failed to read log file",
+  "details": "Error details here"
+}
+```
+
+**Behavior:**
+
+- Validates that `name` matches a service in machine's servicesArray
+- Looks up the service by name to get its `pathToLogs` field
+- Constructs log file path as `{service.pathToLogs}/{name}.log`
+- Returns entire log file content as plain text
+- Checks directory existence before attempting to read file
+- Provides explicit error messages for:
+  - Directory doesn't exist
+  - Log file doesn't exist
+  - Permission errors
+  - Service not found in servicesArray
+- Only works when `NODE_ENV=production` on Ubuntu servers
+
+**Notes:**
+
+- The `name` parameter must match the `name` field (not `filename`) in servicesArray
+- Response is plain text, not JSON
+- Returns the entire log file without pagination or limits
+- URL encode the service name if it contains spaces (e.g., "PersonalWeb03 API" → "PersonalWeb03%20API")
+
+---

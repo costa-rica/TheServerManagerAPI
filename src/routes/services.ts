@@ -7,6 +7,7 @@ import {
   getServiceStatus,
   getTimerStatusAndTrigger,
   toggleService,
+  readLogFile,
 } from "../modules/services";
 
 const router = express.Router();
@@ -217,6 +218,76 @@ router.post("/:serviceFilename/:toggleStatus", async (req: Request, res: Respons
     console.error("[services route] Unhandled error in POST /services/:serviceFilename/:toggleStatus:", error);
     res.status(500).json({
       error: "Failed to toggle service",
+      details: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+});
+
+// 🔹 GET /services/logs/:name: Get log file for a service
+router.get("/logs/:name", async (req: Request, res: Response) => {
+  console.log("[services route] GET /services/logs/:name - Request received");
+  try {
+    const { name } = req.params;
+    console.log(`[services route] Log requested for service name: ${name}`);
+
+    // Check if running in production/Ubuntu environment
+    if (process.env.NODE_ENV !== "production") {
+      return res.status(400).json({
+        error: "This endpoint only works in production environment on Ubuntu OS",
+      });
+    }
+
+    // Get current machine info
+    const { machineName } = getMachineInfo();
+    console.log(`[services route] Machine name from OS: ${machineName}`);
+
+    // Find the machine in the database by machineName
+    const machine = await Machine.findOne({ machineName });
+
+    if (!machine) {
+      return res.status(404).json({
+        error: `Machine with name "${machineName}" not found in database`,
+      });
+    }
+
+    console.log(`[services route] Machine found: ${machine.publicId}`);
+
+    // Check if machine has servicesArray
+    if (!machine.servicesArray || machine.servicesArray.length === 0) {
+      return res.status(404).json({
+        error: `Machine "${machineName}" has no services configured in servicesArray`,
+      });
+    }
+
+    // Find the service in the servicesArray by name
+    const service = machine.servicesArray.find((s) => s.name === name);
+
+    if (!service) {
+      return res.status(404).json({
+        error: `Service with name "${name}" is not configured in this machine's servicesArray`,
+      });
+    }
+
+    console.log(`[services route] Found service: ${service.name}, pathToLogs: ${service.pathToLogs}`);
+
+    // Read the log file
+    const logResult = await readLogFile(service.pathToLogs, name);
+
+    if (!logResult.success) {
+      return res.status(404).json({
+        error: logResult.error,
+      });
+    }
+
+    console.log(`[services route] Successfully read log file for ${name}`);
+
+    // Return log content as plain text
+    res.set("Content-Type", "text/plain");
+    res.send(logResult.content);
+  } catch (error) {
+    console.error("[services route] Unhandled error in GET /services/logs/:name:", error);
+    res.status(500).json({
+      error: "Failed to read log file",
       details: error instanceof Error ? error.message : "Unknown error",
     });
   }

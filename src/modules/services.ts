@@ -1,5 +1,7 @@
 import { exec } from "child_process";
 import { promisify } from "util";
+import fs from "fs/promises";
+import path from "path";
 
 const execAsync = promisify(exec);
 
@@ -164,6 +166,55 @@ export async function toggleService(
       stdout: error.stdout || "",
       stderr: error.stderr || "",
       error: error.message,
+    };
+  }
+}
+
+/**
+ * Read a log file for a service
+ * @param pathToLogs - The directory path where logs are stored
+ * @param name - The service name (used to construct {name}.log)
+ * @returns Object with success status and log content or error message
+ */
+export async function readLogFile(
+  pathToLogs: string,
+  name: string
+): Promise<{ success: boolean; content?: string; error?: string }> {
+  const logFilePath = path.join(pathToLogs, `${name}.log`);
+  console.log(`[services.ts] Reading log file: ${logFilePath}`);
+
+  try {
+    // Check if directory exists
+    try {
+      await fs.access(pathToLogs);
+    } catch (error) {
+      console.error(`[services.ts] Directory does not exist: ${pathToLogs}`);
+      return {
+        success: false,
+        error: `Log directory does not exist: ${pathToLogs}`,
+      };
+    }
+
+    // Check if log file exists
+    try {
+      await fs.access(logFilePath);
+    } catch (error) {
+      console.error(`[services.ts] Log file does not exist: ${logFilePath}`);
+      return {
+        success: false,
+        error: `Log file does not exist: ${logFilePath}`,
+      };
+    }
+
+    // Read the log file
+    const content = await fs.readFile(logFilePath, "utf8");
+    console.log(`[services.ts] Successfully read log file, size: ${content.length} bytes`);
+    return { success: true, content };
+  } catch (error: any) {
+    console.error(`[services.ts] Error reading log file: ${error.message}`);
+    return {
+      success: false,
+      error: `Permission error or failed to read log file: ${error.message}`,
     };
   }
 }

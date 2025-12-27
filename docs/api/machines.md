@@ -36,6 +36,170 @@ curl --location 'http://localhost:3000/machines/name' \
 
 ---
 
+## GET /machines/check-nick-systemctl
+
+Build a services array by scanning `/home/nick/nick-systemctl.csv` and validating service files. This endpoint is designed to help populate the services form in TheServerManagerNextJS web application.
+
+**Authentication:** Required (JWT token)
+
+**Process:**
+
+1. Reads `/home/nick/nick-systemctl.csv` and extracts unique unit filenames from the `unit` column
+2. Builds a service map linking `.timer` files to their corresponding `.service` files
+3. Validates that all service files exist in `/etc/systemd/system/`
+4. Extracts port numbers from each service file (looks for `PORT=` or `0.0.0.0:` followed by exactly 4 digits)
+5. Returns array of service objects with `filename`, optional `port`, and optional `filenameTimer`
+
+**CSV File Format:**
+
+The endpoint expects `/home/nick/nick-systemctl.csv` with the following structure:
+
+```csv
+user,runas,tag,command,action,unit
+nick,ALL=(root),NOPASSWD:,/usr/bin/systemctl,restart,tsm-api.service
+nick,ALL=(root),NOPASSWD:,/usr/bin/systemctl,restart,tsm-api.timer
+```
+
+**Sample Request:**
+
+```bash
+curl --location 'http://localhost:3000/machines/check-nick-systemctl' \
+--header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+**Success Response (200 OK):**
+
+```json
+{
+  "message": "Services array built successfully from nick-systemctl.csv",
+  "servicesArray": [
+    {
+      "filename": "tsm-api.service",
+      "port": 3000,
+      "filenameTimer": "tsm-api.timer"
+    },
+    {
+      "filename": "another-app.service",
+      "port": 8080
+    },
+    {
+      "filename": "no-port-app.service"
+    }
+  ]
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `servicesArray[].filename` | String | Service filename from CSV (always ends with `.service`) |
+| `servicesArray[].port` | Number | Port number extracted from service file (optional, only if found) |
+| `servicesArray[].filenameTimer` | String | Associated timer filename (optional, only if `.timer` file exists in CSV) |
+
+**Error Response (404 Not Found - CSV File Missing):**
+
+```json
+{
+  "error": {
+    "code": "CSV_FILE_NOT_FOUND",
+    "message": "CSV file not found",
+    "details": "The file /home/nick/nick-systemctl.csv does not exist on this server",
+    "status": 404
+  }
+}
+```
+
+**Error Response (500 Internal Server Error - CSV Read Error):**
+
+```json
+{
+  "error": {
+    "code": "CSV_FILE_READ_ERROR",
+    "message": "Failed to read CSV file",
+    "details": "Permission denied",
+    "status": 500
+  }
+}
+```
+
+**Error Response (400 Bad Request - Orphaned Timer File):**
+
+```json
+{
+  "error": {
+    "code": "ORPHANED_TIMER_FILE",
+    "message": "Orphaned timer file found",
+    "details": "Timer file 'my-app.timer' found in CSV but corresponding service file 'my-app.service' is not present in the CSV",
+    "status": 400
+  }
+}
+```
+
+**Error Response (404 Not Found - Service File Missing):**
+
+```json
+{
+  "error": {
+    "code": "SERVICE_FILE_NOT_FOUND_IN_DIRECTORY",
+    "message": "Service file not found in systemd directory",
+    "details": "Service file 'tsm-api.service' is listed in the CSV but does not exist at /etc/systemd/system/tsm-api.service",
+    "status": 404
+  }
+}
+```
+
+**Error Response (500 Internal Server Error - Service File Read Error):**
+
+```json
+{
+  "error": {
+    "code": "SERVICE_FILE_READ_ERROR",
+    "message": "Failed to read service file",
+    "details": "Permission denied",
+    "status": 500
+  }
+}
+```
+
+**Error Response (400 Bad Request - Invalid Port Format):**
+
+```json
+{
+  "error": {
+    "code": "INVALID_PORT_FORMAT",
+    "message": "Invalid port number format",
+    "details": "Service file 'tsm-api.service' contains port number '80' which is not exactly 4 digits",
+    "status": 400
+  }
+}
+```
+
+**Error Response (500 Internal Server Error):**
+
+```json
+{
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "Failed to build services array",
+    "details": "Unexpected error occurred",
+    "status": 500
+  }
+}
+```
+
+**Behavior:**
+
+- Only processes `.service` and `.timer` files from CSV
+- `.timer` files must have a corresponding `.service` file with the same base name
+- Port extraction looks for exactly 4-digit numbers after `PORT=` or `0.0.0.0:`
+- Returns first matching port pattern found in service file
+- Port and timer fields are optional in response (only included if found)
+- All errors follow standardized error response format
+- `details` field in errors is only populated in development (NODE_ENV !== 'production')
+
+---
+
 ## GET /machines
 
 Get all registered machines in the system.

@@ -249,4 +249,243 @@ async function getServicesNameAndValidateServiceFile(service: any): Promise<void
 	console.log(`[machines.ts] Successfully validated and populated service: ${filename}`);
 }
 
-export { getMachineInfo, getServicesNameAndValidateServiceFile };
+/**
+ * Reads and parses the nick-systemctl.csv file
+ * @param csvPath - Path to the CSV file
+ * @returns Array of unit filenames from the CSV
+ * @throws Error if file doesn't exist or can't be read
+ */
+async function readNickSystemctlCsv(csvPath: string): Promise<string[]> {
+	// Check if CSV file exists
+	try {
+		await fs.access(csvPath);
+	} catch (error) {
+		throw {
+			error: {
+				code: "CSV_FILE_NOT_FOUND",
+				message: "CSV file not found",
+				details: `The file ${csvPath} does not exist on this server`,
+				status: 404
+			}
+		};
+	}
+
+	// Read CSV file
+	let csvContent: string;
+	try {
+		csvContent = await fs.readFile(csvPath, "utf8");
+	} catch (error: any) {
+		throw {
+			error: {
+				code: "CSV_FILE_READ_ERROR",
+				message: "Failed to read CSV file",
+				details: process.env.NODE_ENV !== "production" ? error.message : undefined,
+				status: 500
+			}
+		};
+	}
+
+	// Parse CSV and extract unique unit filenames
+	const lines = csvContent.trim().split("\n");
+	const units: string[] = [];
+
+	// Skip header row (line 0)
+	for (let i = 1; i < lines.length; i++) {
+		const line = lines[i].trim();
+		if (!line) continue;
+
+		const columns = line.split(",");
+		if (columns.length >= 6) {
+			const unit = columns[5].trim();
+			if (unit && !units.includes(unit)) {
+				units.push(unit);
+			}
+		}
+	}
+
+	return units;
+}
+
+/**
+ * Builds a service map from CSV units, linking .timer files to their corresponding .service files
+ * @param units - Array of unit filenames from CSV
+ * @returns Map of service filenames to their timer files (if any)
+ * @throws Error if orphaned .timer file is found
+ */
+function buildServiceMapFromCsv(units: string[]): Map<string, { timerFile?: string }> {
+	const serviceMap = new Map<string, { timerFile?: string }>();
+	const timerFiles: string[] = [];
+
+	// First pass: collect all .service files and .timer files
+	for (const unit of units) {
+		if (unit.endsWith(".service")) {
+			serviceMap.set(unit, {});
+		} else if (unit.endsWith(".timer")) {
+			timerFiles.push(unit);
+		}
+	}
+
+	// Second pass: match .timer files to their .service files
+	for (const timerFile of timerFiles) {
+		const serviceFileName = timerFile.replace(".timer", ".service");
+
+		if (!serviceMap.has(serviceFileName)) {
+			throw {
+				error: {
+					code: "ORPHANED_TIMER_FILE",
+					message: "Orphaned timer file found",
+					details: `Timer file '${timerFile}' found in CSV but corresponding service file '${serviceFileName}' is not present in the CSV`,
+					status: 400
+				}
+			};
+		}
+
+		// Link timer to service
+		const serviceEntry = serviceMap.get(serviceFileName);
+		if (serviceEntry) {
+			serviceEntry.timerFile = timerFile;
+		}
+	}
+
+	return serviceMap;
+}
+
+/**
+ * Checks that all service files exist in /etc/systemd/system/
+ * @param serviceMap - Map of service filenames
+ * @throws Error if any service file is not found
+ */
+async function checkServiceFilesExist(serviceMap: Map<string, { timerFile?: string }>): Promise<void> {
+	const systemdPath = "/etc/systemd/system";
+
+	for (const [serviceFileName] of Array.from(serviceMap.entries())) {
+		const serviceFilePath = path.join(systemdPath, serviceFileName);
+
+		try {
+			await fs.access(serviceFilePath);
+		} catch (error) {
+			throw {
+				error: {
+					code: "SERVICE_FILE_NOT_FOUND_IN_DIRECTORY",
+					message: "Service file not found in systemd directory",
+					details: `Service file '${serviceFileName}' is listed in the CSV but does not exist at ${serviceFilePath}`,
+					status: 404
+				}
+			};
+		}
+	}
+}
+
+/**
+ * Extracts port number from a service file
+ * Looks for "PORT=" or "0.0.0.0:" followed by exactly 4 digits
+ * @param serviceFileName - Name of the service file
+ * @returns Port number or undefined if not found
+ * @throws Error if port format is invalid (not exactly 4 digits)
+ */
+async function extractPortFromServiceFile(serviceFileName: string): Promise<number | undefined> {
+	const serviceFilePath = path.join("/etc/systemd/system", serviceFileName);
+
+	let serviceFileContent: string;
+	try {
+		serviceFileContent = await fs.readFile(serviceFilePath, "utf8");
+	} catch (error: any) {
+		throw {
+			error: {
+				code: "SERVICE_FILE_READ_ERROR",
+				message: "Failed to read service file",
+				details: process.env.NODE_ENV !== "production" ? error.message : undefined,
+				status: 500
+			}
+		};
+	}
+
+	// Search for "PORT=" or "0.0.0.0:" followed by digits
+	const portPatterns = [
+		/PORT=(\d+)/,
+		/0\.0\.0\.0:(\d+)/
+	];
+
+	for (const pattern of portPatterns) {
+		const match = serviceFileContent.match(pattern);
+		if (match) {
+			const portString = match[1];
+
+			// Validate exactly 4 digits
+			if (portString.length !== 4) {
+				throw {
+					error: {
+						code: "INVALID_PORT_FORMAT",
+						message: "Invalid port number format",
+						details: `Service file '${serviceFileName}' contains port number '${portString}' which is not exactly 4 digits`,
+						status: 400
+					}
+				};
+			}
+
+			return parseInt(portString, 10);
+		}
+	}
+
+	// No port found - this is acceptable
+	return undefined;
+}
+
+/**
+ * Main function to build services array from nick-systemctl.csv
+ * @returns Array of service objects with filename, port (optional), and filenameTimer (optional)
+ */
+async function buildServicesArrayFromNickSystemctl(): Promise<Array<{
+	filename: string;
+	port?: number;
+	filenameTimer?: string;
+}>> {
+	const csvPath = "/home/nick/nick-systemctl.csv";
+
+	// Step 1: Read CSV and extract units
+	const units = await readNickSystemctlCsv(csvPath);
+
+	// Step 2: Build service map and validate no orphaned timers
+	const serviceMap = buildServiceMapFromCsv(units);
+
+	// Step 3: Check all service files exist in /etc/systemd/system/
+	await checkServiceFilesExist(serviceMap);
+
+	// Step 4: Build the response array
+	const servicesArray: Array<{
+		filename: string;
+		port?: number;
+		filenameTimer?: string;
+	}> = [];
+
+	for (const [serviceFileName, { timerFile }] of Array.from(serviceMap.entries())) {
+		const serviceEntry: {
+			filename: string;
+			port?: number;
+			filenameTimer?: string;
+		} = {
+			filename: serviceFileName
+		};
+
+		// Extract port from service file
+		const port = await extractPortFromServiceFile(serviceFileName);
+		if (port !== undefined) {
+			serviceEntry.port = port;
+		}
+
+		// Add timer file if exists
+		if (timerFile) {
+			serviceEntry.filenameTimer = timerFile;
+		}
+
+		servicesArray.push(serviceEntry);
+	}
+
+	return servicesArray;
+}
+
+export {
+	getMachineInfo,
+	getServicesNameAndValidateServiceFile,
+	buildServicesArrayFromNickSystemctl
+};

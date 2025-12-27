@@ -3,7 +3,7 @@ import type { Request, Response } from "express";
 import { randomUUID } from "crypto";
 import { Machine } from "../models/machine";
 import { checkBodyReturnMissing } from "../modules/common";
-import { getMachineInfo, getServicesNameAndValidateServiceFile } from "../modules/machines";
+import { getMachineInfo, getServicesNameAndValidateServiceFile, buildServicesArrayFromNickSystemctl } from "../modules/machines";
 import { authenticateToken } from "../modules/authentication";
 
 const router = express.Router();
@@ -19,6 +19,39 @@ router.get("/name", authenticateToken, (req: Request, res: Response) => {
       error: {
         code: "INTERNAL_ERROR",
         message: "Failed to retrieve machine information",
+        details: process.env.NODE_ENV !== 'production' ? error.message : undefined,
+        status: 500
+      }
+    });
+  }
+});
+
+// 🔹 GET /machines/check-nick-systemctl: Get services array from nick-systemctl.csv
+router.get("/check-nick-systemctl", authenticateToken, async (req: Request, res: Response) => {
+  try {
+    console.log("[machines.ts] GET /machines/check-nick-systemctl - Building services array from nick-systemctl.csv");
+
+    const servicesArray = await buildServicesArrayFromNickSystemctl();
+
+    console.log(`[machines.ts] Successfully built services array with ${servicesArray.length} service(s)`);
+
+    res.status(200).json({
+      message: "Services array built successfully from nick-systemctl.csv",
+      servicesArray
+    });
+  } catch (error: any) {
+    console.error("[machines.ts] Error in /machines/check-nick-systemctl:", error);
+
+    // If the error has the standardized format, return it directly
+    if (error.error) {
+      return res.status(error.error.status || 500).json(error);
+    }
+
+    // Otherwise, return a generic internal error
+    res.status(500).json({
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to build services array",
         details: process.env.NODE_ENV !== 'production' ? error.message : undefined,
         status: 500
       }

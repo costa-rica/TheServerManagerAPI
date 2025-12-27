@@ -93,13 +93,19 @@ Register a new machine in the system.
 | `urlFor404Api` | String | Yes | URL for the 404 API endpoint |
 | `nginxStoragePathOptions` | String[] | Yes | Array of nginx storage paths |
 | `servicesArray` | Object[] | No | Array of systemd service configurations |
-| `servicesArray[].name` | String | Yes* | Human-readable service name |
 | `servicesArray[].filename` | String | Yes* | Systemd service filename (e.g., "app.service") |
 | `servicesArray[].pathToLogs` | String | Yes* | Path to service log directory |
 | `servicesArray[].filenameTimer` | String | No | Systemd timer filename if applicable |
 | `servicesArray[].port` | Number | No | Port number the service runs on |
 
 *Required if `servicesArray` is provided
+
+**Auto-Populated Fields (per service):**
+
+| Field | Source | Description |
+|-------|--------|-------------|
+| `servicesArray[].name` | NAME_APP from .env | Extracted from NAME_APP variable in .env file located in WorkingDirectory |
+| `servicesArray[].workingDirectory` | Service file | Extracted from WorkingDirectory property in /etc/systemd/system/{filename} |
 
 **Sample Request:**
 
@@ -112,7 +118,6 @@ curl --location 'http://localhost:3000/machines' \
   "nginxStoragePathOptions": ["/var/www", "/home/user/sites"],
   "servicesArray": [
     {
-      "name": "PersonalWeb03 API",
       "filename": "personalweb03-api.service",
       "pathToLogs": "/home/ubuntu/personalweb03-api/logs",
       "filenameTimer": "personalweb03-api.timer",
@@ -139,6 +144,7 @@ curl --location 'http://localhost:3000/machines' \
         "name": "PersonalWeb03 API",
         "filename": "personalweb03-api.service",
         "pathToLogs": "/home/ubuntu/personalweb03-api/logs",
+        "workingDirectory": "/home/ubuntu/personalweb03-api",
         "filenameTimer": "personalweb03-api.timer",
         "port": 3001
       }
@@ -169,7 +175,59 @@ curl --location 'http://localhost:3000/machines' \
 
 ```json
 {
-  "error": "Service at index 0 is missing required fields: name, filename, pathToLogs"
+  "error": "Service at index 0 is missing required fields: filename, pathToLogs"
+}
+```
+
+**Error Response (400 Bad Request - Service File Not Found):**
+
+```json
+{
+  "error": {
+    "code": "SERVICE_FILE_NOT_FOUND",
+    "message": "Service file not found",
+    "details": "Service file 'personalweb03-api.service' does not exist at /etc/systemd/system/personalweb03-api.service",
+    "status": 400
+  }
+}
+```
+
+**Error Response (400 Bad Request - WorkingDirectory Not Found):**
+
+```json
+{
+  "error": {
+    "code": "WORKING_DIRECTORY_NOT_FOUND",
+    "message": "WorkingDirectory not found in service file",
+    "details": "Service file 'personalweb03-api.service' is missing the WorkingDirectory property",
+    "status": 400
+  }
+}
+```
+
+**Error Response (400 Bad Request - .env File Not Found):**
+
+```json
+{
+  "error": {
+    "code": "ENV_FILE_NOT_FOUND",
+    "message": ".env file not found",
+    "details": ".env file not found in WorkingDirectory '/home/ubuntu/personalweb03-api' for service 'personalweb03-api.service'",
+    "status": 400
+  }
+}
+```
+
+**Error Response (400 Bad Request - NAME_APP Not Found):**
+
+```json
+{
+  "error": {
+    "code": "NAME_APP_NOT_FOUND",
+    "message": "NAME_APP not found in .env file",
+    "details": "NAME_APP variable not found in .env file for service 'personalweb03-api.service'",
+    "status": 400
+  }
 }
 ```
 
@@ -185,8 +243,14 @@ curl --location 'http://localhost:3000/machines' \
 
 - Auto-generates `publicId` using crypto.randomUUID()
 - Auto-detects `machineName` and `localIpAddress` from OS
-- Validates each service object in `servicesArray` if provided
+- Validates each service object in `servicesArray` if provided:
+  - Reads service file from `/etc/systemd/system/{filename}`
+  - Extracts `WorkingDirectory` from service file
+  - Reads `.env` file from WorkingDirectory
+  - Extracts `NAME_APP` from .env to populate service `name`
+  - Auto-populates `workingDirectory` field for each service
 - Returns empty `servicesArray` if not provided in request
+- All service validation happens in all environments (not just production)
 
 ---
 
@@ -208,7 +272,13 @@ Update an existing machine's configuration (partial update).
 |-------|------|-------------|
 | `urlFor404Api` | String | URL for the 404 API endpoint |
 | `nginxStoragePathOptions` | String[] | Array of nginx storage paths |
-| `servicesArray` | Object[] | Array of systemd service configurations (same structure as POST) |
+| `servicesArray` | Object[] | Array of systemd service configurations (see POST for field details) |
+| `servicesArray[].filename` | String | Systemd service filename (e.g., "app.service") |
+| `servicesArray[].pathToLogs` | String | Path to service log directory |
+| `servicesArray[].filenameTimer` | String | Systemd timer filename if applicable (optional) |
+| `servicesArray[].port` | Number | Port number the service runs on (optional) |
+
+**Note:** `servicesArray[].name` and `servicesArray[].workingDirectory` are auto-populated from service file validation (same as POST)
 
 **Sample Request:**
 
@@ -234,7 +304,16 @@ curl --location --request PATCH 'http://localhost:3000/machines/a3f2b1c4-5d6e-7f
     "urlFor404Api": "http://192.168.1.100:8080",
     "localIpAddress": "192.168.1.100",
     "nginxStoragePathOptions": ["/var/www", "/home/user/sites", "/etc/nginx/sites-available"],
-    "servicesArray": [],
+    "servicesArray": [
+      {
+        "name": "PersonalWeb03 API",
+        "filename": "personalweb03-api.service",
+        "pathToLogs": "/home/ubuntu/personalweb03-api/logs",
+        "workingDirectory": "/home/ubuntu/personalweb03-api",
+        "filenameTimer": "personalweb03-api.timer",
+        "port": 3001
+      }
+    ],
     "createdAt": "2025-12-25T10:30:00.000Z",
     "updatedAt": "2025-12-25T14:22:00.000Z"
   }
@@ -278,6 +357,11 @@ curl --location --request PATCH 'http://localhost:3000/machines/a3f2b1c4-5d6e-7f
 - Supports partial updates (only provided fields are updated)
 - Cannot update `publicId`, `machineName`, or `localIpAddress` (auto-generated/detected)
 - Validates all provided fields with same rules as POST endpoint
+- If `servicesArray` is provided, validates each service:
+  - Reads service file from `/etc/systemd/system/{filename}`
+  - Auto-populates `name` from NAME_APP in .env
+  - Auto-populates `workingDirectory` from service file
+  - All service validation errors use standardized error format (see POST)
 - Returns complete machine object with updated `updatedAt` timestamp
 
 ---

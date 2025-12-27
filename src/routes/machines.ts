@@ -3,7 +3,7 @@ import type { Request, Response } from "express";
 import { randomUUID } from "crypto";
 import { Machine } from "../models/machine";
 import { checkBodyReturnMissing } from "../modules/common";
-import { getMachineInfo } from "../modules/machines";
+import { getMachineInfo, getServicesNameAndValidateServiceFile } from "../modules/machines";
 import { authenticateToken } from "../modules/authentication";
 
 const router = express.Router();
@@ -70,7 +70,7 @@ router.post("/", authenticateToken, async (req: Request, res: Response) => {
       for (let i = 0; i < servicesArray.length; i++) {
         const service = servicesArray[i];
         const { isValid: serviceValid, missingKeys: serviceMissingKeys } =
-          checkBodyReturnMissing(service, ["name", "filename", "pathToLogs"]);
+          checkBodyReturnMissing(service, ["filename", "pathToLogs"]);
 
         if (!serviceValid) {
           return res.status(400).json({
@@ -80,12 +80,11 @@ router.post("/", authenticateToken, async (req: Request, res: Response) => {
 
         // Validate that required fields are strings
         if (
-          typeof service.name !== "string" ||
           typeof service.filename !== "string" ||
           typeof service.pathToLogs !== "string"
         ) {
           return res.status(400).json({
-            error: `Service at index ${i}: name, filename, and pathToLogs must be strings`,
+            error: `Service at index ${i}: filename and pathToLogs must be strings`,
           });
         }
 
@@ -103,6 +102,14 @@ router.post("/", authenticateToken, async (req: Request, res: Response) => {
           return res.status(400).json({
             error: `Service at index ${i}: port must be a number`,
           });
+        }
+
+        // Validate service file and populate name and workingDirectory
+        try {
+          await getServicesNameAndValidateServiceFile(service);
+        } catch (error: any) {
+          // Return the standardized error from the validation function
+          return res.status(error.error?.status || 400).json(error);
         }
       }
     }
@@ -199,7 +206,7 @@ router.patch("/:publicId", authenticateToken, async (req: Request, res: Response
       for (let i = 0; i < servicesArray.length; i++) {
         const service = servicesArray[i];
         const { isValid: serviceValid, missingKeys: serviceMissingKeys } =
-          checkBodyReturnMissing(service, ["name", "filename", "pathToLogs"]);
+          checkBodyReturnMissing(service, ["filename", "pathToLogs"]);
 
         if (!serviceValid) {
           return res.status(400).json({
@@ -209,12 +216,11 @@ router.patch("/:publicId", authenticateToken, async (req: Request, res: Response
 
         // Validate that required fields are strings
         if (
-          typeof service.name !== "string" ||
           typeof service.filename !== "string" ||
           typeof service.pathToLogs !== "string"
         ) {
           return res.status(400).json({
-            error: `Service at index ${i}: name, filename, and pathToLogs must be strings`,
+            error: `Service at index ${i}: filename and pathToLogs must be strings`,
           });
         }
 
@@ -232,6 +238,14 @@ router.patch("/:publicId", authenticateToken, async (req: Request, res: Response
           return res.status(400).json({
             error: `Service at index ${i}: port must be a number`,
           });
+        }
+
+        // Validate service file and populate name and workingDirectory
+        try {
+          await getServicesNameAndValidateServiceFile(service);
+        } catch (error: any) {
+          // Return the standardized error from the validation function
+          return res.status(error.error?.status || 400).json(error);
         }
       }
 

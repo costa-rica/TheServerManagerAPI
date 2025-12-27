@@ -44,8 +44,9 @@ function getMachineInfo(): { machineName: string; localIpAddress: string } {
  * 3. Service file must exist at /etc/systemd/system/{filename}
  * 4. Reads the systemd service file to extract WorkingDirectory
  * 5. Reads environment file to extract app name:
- *    - First tries .env file with NAME_APP variable
- *    - If .env doesn't exist, falls back to .env.local with NEXT_PUBLIC_NAME_APP variable
+ *    - First tries .env file, then falls back to .env.local if not found
+ *    - Searches for "NAME_APP=" string and extracts the value to the right
+ *    - This matches both NAME_APP and NEXT_PUBLIC_NAME_APP variables
  * 6. Updates the service object in place with name and workingDirectory
  *
  * @param service - Service object with filename property (will be updated in place)
@@ -171,14 +172,14 @@ async function getServicesNameAndValidateServiceFile(service: any): Promise<void
 			};
 		}
 
-		// Parse NAME_APP from .env file
-		const nameAppMatch = envFileContent.match(/^NAME_APP=(.+)$/m);
+		// Parse NAME_APP from .env file (matches both NAME_APP and NEXT_PUBLIC_NAME_APP)
+		const nameAppMatch = envFileContent.match(/NAME_APP=(.+)$/m);
 		if (!nameAppMatch) {
 			throw {
 				error: {
 					code: "NAME_APP_NOT_FOUND",
-					message: `NAME_APP not found in .env file`,
-					details: `NAME_APP variable not found in .env file for service '${filename}'`,
+					message: `NAME_APP variable not found in .env file`,
+					details: `No variable containing "NAME_APP=" found in .env file for service '${filename}'`,
 					status: 400
 				}
 			};
@@ -225,21 +226,21 @@ async function getServicesNameAndValidateServiceFile(service: any): Promise<void
 			};
 		}
 
-		// Parse NEXT_PUBLIC_NAME_APP from .env.local file
-		const nextPublicNameAppMatch = envFileContent.match(/^NEXT_PUBLIC_NAME_APP=(.+)$/m);
-		if (!nextPublicNameAppMatch) {
+		// Parse NAME_APP from .env.local file (matches both NAME_APP and NEXT_PUBLIC_NAME_APP)
+		const nameAppMatchLocal = envFileContent.match(/NAME_APP=(.+)$/m);
+		if (!nameAppMatchLocal) {
 			throw {
 				error: {
 					code: "NAME_APP_NOT_FOUND",
-					message: `NEXT_PUBLIC_NAME_APP not found in .env.local file`,
-					details: `NEXT_PUBLIC_NAME_APP variable not found in .env.local file for service '${filename}'`,
+					message: `NAME_APP variable not found in .env.local file`,
+					details: `No variable containing "NAME_APP=" found in .env.local file for service '${filename}'`,
 					status: 400
 				}
 			};
 		}
 
-		name = nextPublicNameAppMatch[1].trim();
-		console.log(`[machines.ts] Found NEXT_PUBLIC_NAME_APP in .env.local for ${filename}: ${name}`);
+		name = nameAppMatchLocal[1].trim();
+		console.log(`[machines.ts] Found NAME_APP in .env.local for ${filename}: ${name}`);
 	}
 
 	// Update service object in place

@@ -13,9 +13,16 @@ router.get("/name", authenticateToken, (req: Request, res: Response) => {
   try {
     const machineInfo = getMachineInfo();
     res.json(machineInfo);
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error getting machine info:", error);
-    res.status(500).json({ error: "Failed to retrieve machine information" });
+    res.status(500).json({
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to retrieve machine information",
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+        status: 500
+      }
+    });
   }
 });
 
@@ -46,15 +53,25 @@ router.post("/", authenticateToken, async (req: Request, res: Response) => {
     ]);
 
     if (!isValid) {
-      return res
-        .status(400)
-        .json({ error: `Missing ${missingKeys.join(", ")}` });
+      return res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Request validation failed",
+          details: `Missing required fields: ${missingKeys.join(", ")}`,
+          status: 400
+        }
+      });
     }
 
     // Validate that nginxStoragePathOptions is an array
     if (!Array.isArray(nginxStoragePathOptions)) {
       return res.status(400).json({
-        error: "nginxStoragePathOptions must be an array of strings",
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Request validation failed",
+          details: "nginxStoragePathOptions must be an array of strings",
+          status: 400
+        }
       });
     }
 
@@ -62,7 +79,12 @@ router.post("/", authenticateToken, async (req: Request, res: Response) => {
     if (servicesArray !== undefined) {
       if (!Array.isArray(servicesArray)) {
         return res.status(400).json({
-          error: "servicesArray must be an array",
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Request validation failed",
+            details: "servicesArray must be an array",
+            status: 400
+          }
         });
       }
 
@@ -74,7 +96,12 @@ router.post("/", authenticateToken, async (req: Request, res: Response) => {
 
         if (!serviceValid) {
           return res.status(400).json({
-            error: `Service at index ${i} is missing required fields: ${serviceMissingKeys.join(", ")}`,
+            error: {
+              code: "VALIDATION_ERROR",
+              message: "Request validation failed",
+              details: `Service at index ${i} is missing required fields: ${serviceMissingKeys.join(", ")}`,
+              status: 400
+            }
           });
         }
 
@@ -84,7 +111,12 @@ router.post("/", authenticateToken, async (req: Request, res: Response) => {
           typeof service.pathToLogs !== "string"
         ) {
           return res.status(400).json({
-            error: `Service at index ${i}: filename and pathToLogs must be strings`,
+            error: {
+              code: "VALIDATION_ERROR",
+              message: "Request validation failed",
+              details: `Service at index ${i}: filename and pathToLogs must be strings`,
+              status: 400
+            }
           });
         }
 
@@ -94,13 +126,23 @@ router.post("/", authenticateToken, async (req: Request, res: Response) => {
           typeof service.filenameTimer !== "string"
         ) {
           return res.status(400).json({
-            error: `Service at index ${i}: filenameTimer must be a string`,
+            error: {
+              code: "VALIDATION_ERROR",
+              message: "Request validation failed",
+              details: `Service at index ${i}: filenameTimer must be a string`,
+              status: 400
+            }
           });
         }
 
         if (service.port !== undefined && typeof service.port !== "number") {
           return res.status(400).json({
-            error: `Service at index ${i}: port must be a number`,
+            error: {
+              code: "VALIDATION_ERROR",
+              message: "Request validation failed",
+              details: `Service at index ${i}: port must be a number`,
+              status: 400
+            }
           });
         }
 
@@ -144,9 +186,16 @@ router.post("/", authenticateToken, async (req: Request, res: Response) => {
         updatedAt: machine.updatedAt,
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error creating machine:", error);
-    res.status(500).json({ error: "Failed to create machine" });
+    res.status(500).json({
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to create machine",
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+        status: 500
+      }
+    });
   }
 });
 
@@ -159,7 +208,12 @@ router.patch("/:publicId", authenticateToken, async (req: Request, res: Response
     // Validate publicId parameter
     if (!publicId || typeof publicId !== "string" || publicId.trim() === "") {
       return res.status(400).json({
-        error: "publicId parameter must be a non-empty string",
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Request validation failed",
+          details: "publicId parameter must be a non-empty string",
+          status: 400
+        }
       });
     }
 
@@ -167,7 +221,11 @@ router.patch("/:publicId", authenticateToken, async (req: Request, res: Response
     const machine = await Machine.findOne({ publicId });
     if (!machine) {
       return res.status(404).json({
-        error: "Machine not found",
+        error: {
+          code: "NOT_FOUND",
+          message: "Machine not found",
+          status: 404
+        }
       });
     }
 
@@ -178,7 +236,12 @@ router.patch("/:publicId", authenticateToken, async (req: Request, res: Response
     if (urlFor404Api !== undefined) {
       if (typeof urlFor404Api !== "string" || urlFor404Api.trim() === "") {
         return res.status(400).json({
-          error: "urlFor404Api must be a non-empty string",
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Request validation failed",
+            details: "urlFor404Api must be a non-empty string",
+            status: 400
+          }
         });
       }
       updates.urlFor404Api = urlFor404Api;
@@ -188,7 +251,12 @@ router.patch("/:publicId", authenticateToken, async (req: Request, res: Response
     if (nginxStoragePathOptions !== undefined) {
       if (!Array.isArray(nginxStoragePathOptions)) {
         return res.status(400).json({
-          error: "nginxStoragePathOptions must be an array of strings",
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Request validation failed",
+            details: "nginxStoragePathOptions must be an array of strings",
+            status: 400
+          }
         });
       }
       updates.nginxStoragePathOptions = nginxStoragePathOptions;
@@ -198,7 +266,12 @@ router.patch("/:publicId", authenticateToken, async (req: Request, res: Response
     if (servicesArray !== undefined) {
       if (!Array.isArray(servicesArray)) {
         return res.status(400).json({
-          error: "servicesArray must be an array",
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Request validation failed",
+            details: "servicesArray must be an array",
+            status: 400
+          }
         });
       }
 
@@ -210,7 +283,12 @@ router.patch("/:publicId", authenticateToken, async (req: Request, res: Response
 
         if (!serviceValid) {
           return res.status(400).json({
-            error: `Service at index ${i} is missing required fields: ${serviceMissingKeys.join(", ")}`,
+            error: {
+              code: "VALIDATION_ERROR",
+              message: "Request validation failed",
+              details: `Service at index ${i} is missing required fields: ${serviceMissingKeys.join(", ")}`,
+              status: 400
+            }
           });
         }
 
@@ -220,7 +298,12 @@ router.patch("/:publicId", authenticateToken, async (req: Request, res: Response
           typeof service.pathToLogs !== "string"
         ) {
           return res.status(400).json({
-            error: `Service at index ${i}: filename and pathToLogs must be strings`,
+            error: {
+              code: "VALIDATION_ERROR",
+              message: "Request validation failed",
+              details: `Service at index ${i}: filename and pathToLogs must be strings`,
+              status: 400
+            }
           });
         }
 
@@ -230,13 +313,23 @@ router.patch("/:publicId", authenticateToken, async (req: Request, res: Response
           typeof service.filenameTimer !== "string"
         ) {
           return res.status(400).json({
-            error: `Service at index ${i}: filenameTimer must be a string`,
+            error: {
+              code: "VALIDATION_ERROR",
+              message: "Request validation failed",
+              details: `Service at index ${i}: filenameTimer must be a string`,
+              status: 400
+            }
           });
         }
 
         if (service.port !== undefined && typeof service.port !== "number") {
           return res.status(400).json({
-            error: `Service at index ${i}: port must be a number`,
+            error: {
+              code: "VALIDATION_ERROR",
+              message: "Request validation failed",
+              details: `Service at index ${i}: port must be a number`,
+              status: 400
+            }
           });
         }
 
@@ -255,7 +348,12 @@ router.patch("/:publicId", authenticateToken, async (req: Request, res: Response
     // Check if at least one field is being updated
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({
-        error: "At least one field must be provided for update (urlFor404Api, nginxStoragePathOptions, or servicesArray)",
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Request validation failed",
+          details: "At least one field must be provided for update (urlFor404Api, nginxStoragePathOptions, or servicesArray)",
+          status: 400
+        }
       });
     }
 
@@ -280,9 +378,16 @@ router.patch("/:publicId", authenticateToken, async (req: Request, res: Response
         updatedAt: updatedMachine!.updatedAt,
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error updating machine:", error);
-    res.status(500).json({ error: "Failed to update machine" });
+    res.status(500).json({
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to update machine",
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+        status: 500
+      }
+    });
   }
 });
 
@@ -294,13 +399,24 @@ router.delete("/:publicId", authenticateToken, async (req, res) => {
     // Validate publicId parameter
     if (!publicId || typeof publicId !== "string" || publicId.trim() === "") {
       return res.status(400).json({
-        error: "publicId parameter must be a non-empty string",
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Request validation failed",
+          details: "publicId parameter must be a non-empty string",
+          status: 400
+        }
       });
     }
 
     const machine = await Machine.findOneAndDelete({ publicId });
     if (!machine) {
-      return res.status(404).json({ error: "Machine not found" });
+      return res.status(404).json({
+        error: {
+          code: "NOT_FOUND",
+          message: "Machine not found",
+          status: 404
+        }
+      });
     }
 
     res.status(200).json({
@@ -310,9 +426,16 @@ router.delete("/:publicId", authenticateToken, async (req, res) => {
         machineName: machine.machineName,
       }
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error deleting machine:", error);
-    res.status(500).json({ error: "Failed to delete machine" });
+    res.status(500).json({
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to delete machine",
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+        status: 500
+      }
+    });
   }
 });
 

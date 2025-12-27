@@ -29,13 +29,17 @@ const machineSchema = new mongoose.Schema(
       {
         name: {
           type: String,
-          required: true,
+          required: false,
         },
         filename: {
           type: String,
           required: true,
         },
         filenameTimer: {
+          type: String,
+          required: false,
+        },
+        workingDirectory: {
           type: String,
           required: false,
         },

@@ -24,8 +24,11 @@ router.get("/", async (req: Request, res: Response) => {
     if (process.env.NODE_ENV !== "production") {
       console.warn("[services route] Not in production environment, returning error");
       return res.status(400).json({
-        error:
-          "This endpoint only works in production environment on Ubuntu OS",
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "This endpoint only works in production environment on Ubuntu OS",
+          status: 400
+        }
       });
     }
 
@@ -39,7 +42,12 @@ router.get("/", async (req: Request, res: Response) => {
     if (!machine) {
       console.error(`[services route] Machine "${machineName}" not found in database`);
       return res.status(404).json({
-        error: `Machine with name "${machineName}" not found in database`,
+        error: {
+          code: "NOT_FOUND",
+          message: "Machine not found in database",
+          details: `Machine with name "${machineName}" not found in database`,
+          status: 404
+        }
       });
     }
 
@@ -50,7 +58,12 @@ router.get("/", async (req: Request, res: Response) => {
     if (!machine.servicesArray || machine.servicesArray.length === 0) {
       console.warn(`[services route] Machine "${machineName}" has no services configured`);
       return res.status(404).json({
-        error: `Machine "${machineName}" has no services configured in servicesArray`,
+        error: {
+          code: "NOT_FOUND",
+          message: "No services configured for this machine",
+          details: `Machine "${machineName}" has no services configured in servicesArray`,
+          status: 404
+        }
       });
     }
 
@@ -112,12 +125,16 @@ router.get("/", async (req: Request, res: Response) => {
 
     console.log(`[services route] Completed all service queries, returning ${servicesStatusArray.length} results`);
     res.json({ servicesStatusArray });
-  } catch (error) {
+  } catch (error: any) {
     console.error("[services route] Unhandled error in GET /services:", error);
     console.error("[services route] Error stack:", error instanceof Error ? error.stack : 'N/A');
     res.status(500).json({
-      error: "Failed to fetch services status",
-      details: error instanceof Error ? error.message : "Unknown error",
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to fetch services status",
+        details: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.message : "Unknown error") : undefined,
+        status: 500
+      }
     });
   }
 });
@@ -132,7 +149,11 @@ router.post("/:serviceFilename/:toggleStatus", async (req: Request, res: Respons
     // Check if running in production/Ubuntu environment
     if (process.env.NODE_ENV !== "production") {
       return res.status(400).json({
-        error: "This endpoint only works in production environment on Ubuntu OS",
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "This endpoint only works in production environment on Ubuntu OS",
+          status: 400
+        }
       });
     }
 
@@ -140,7 +161,12 @@ router.post("/:serviceFilename/:toggleStatus", async (req: Request, res: Respons
     const validActions = ["start", "stop", "restart", "reload", "enable", "disable"];
     if (!validActions.includes(toggleStatus)) {
       return res.status(400).json({
-        error: `Invalid toggleStatus. Must be one of: ${validActions.join(", ")}`,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid toggleStatus",
+          details: `Invalid toggleStatus. Must be one of: ${validActions.join(", ")}`,
+          status: 400
+        }
       });
     }
 
@@ -153,7 +179,12 @@ router.post("/:serviceFilename/:toggleStatus", async (req: Request, res: Respons
 
     if (!machine) {
       return res.status(404).json({
-        error: `Machine with name "${machineName}" not found in database`,
+        error: {
+          code: "NOT_FOUND",
+          message: "Machine not found in database",
+          details: `Machine with name "${machineName}" not found in database`,
+          status: 404
+        }
       });
     }
 
@@ -162,7 +193,12 @@ router.post("/:serviceFilename/:toggleStatus", async (req: Request, res: Respons
     // Check if machine has servicesArray
     if (!machine.servicesArray || machine.servicesArray.length === 0) {
       return res.status(404).json({
-        error: `Machine "${machineName}" has no services configured in servicesArray`,
+        error: {
+          code: "NOT_FOUND",
+          message: "No services configured for this machine",
+          details: `Machine "${machineName}" has no services configured in servicesArray`,
+          status: 404
+        }
       });
     }
 
@@ -171,7 +207,12 @@ router.post("/:serviceFilename/:toggleStatus", async (req: Request, res: Respons
 
     if (!service) {
       return res.status(404).json({
-        error: `Service with filename "${serviceFilename}" is not configured in this machine's servicesArray`,
+        error: {
+          code: "NOT_FOUND",
+          message: "Service not found",
+          details: `Service with filename "${serviceFilename}" is not configured in this machine's servicesArray`,
+          status: 404
+        }
       });
     }
 
@@ -182,8 +223,12 @@ router.post("/:serviceFilename/:toggleStatus", async (req: Request, res: Respons
 
     if (!toggleResult.success) {
       return res.status(500).json({
-        error: `Failed to ${toggleStatus} service ${serviceFilename}`,
-        details: toggleResult.error,
+        error: {
+          code: "INTERNAL_ERROR",
+          message: `Failed to ${toggleStatus} service`,
+          details: process.env.NODE_ENV === 'development' ? toggleResult.error : undefined,
+          status: 500
+        }
       });
     }
 
@@ -214,11 +259,15 @@ router.post("/:serviceFilename/:toggleStatus", async (req: Request, res: Respons
 
     console.log(`[services route] Returning updated service status`);
     res.json(serviceStatus);
-  } catch (error) {
+  } catch (error: any) {
     console.error("[services route] Unhandled error in POST /services/:serviceFilename/:toggleStatus:", error);
     res.status(500).json({
-      error: "Failed to toggle service",
-      details: error instanceof Error ? error.message : "Unknown error",
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to toggle service",
+        details: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.message : "Unknown error") : undefined,
+        status: 500
+      }
     });
   }
 });
@@ -233,7 +282,11 @@ router.get("/logs/:name", async (req: Request, res: Response) => {
     // Check if running in production/Ubuntu environment
     if (process.env.NODE_ENV !== "production") {
       return res.status(400).json({
-        error: "This endpoint only works in production environment on Ubuntu OS",
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "This endpoint only works in production environment on Ubuntu OS",
+          status: 400
+        }
       });
     }
 
@@ -246,7 +299,12 @@ router.get("/logs/:name", async (req: Request, res: Response) => {
 
     if (!machine) {
       return res.status(404).json({
-        error: `Machine with name "${machineName}" not found in database`,
+        error: {
+          code: "NOT_FOUND",
+          message: "Machine not found in database",
+          details: `Machine with name "${machineName}" not found in database`,
+          status: 404
+        }
       });
     }
 
@@ -255,7 +313,12 @@ router.get("/logs/:name", async (req: Request, res: Response) => {
     // Check if machine has servicesArray
     if (!machine.servicesArray || machine.servicesArray.length === 0) {
       return res.status(404).json({
-        error: `Machine "${machineName}" has no services configured in servicesArray`,
+        error: {
+          code: "NOT_FOUND",
+          message: "No services configured for this machine",
+          details: `Machine "${machineName}" has no services configured in servicesArray`,
+          status: 404
+        }
       });
     }
 
@@ -264,7 +327,12 @@ router.get("/logs/:name", async (req: Request, res: Response) => {
 
     if (!service) {
       return res.status(404).json({
-        error: `Service with name "${name}" is not configured in this machine's servicesArray`,
+        error: {
+          code: "NOT_FOUND",
+          message: "Service not found",
+          details: `Service with name "${name}" is not configured in this machine's servicesArray`,
+          status: 404
+        }
       });
     }
 
@@ -275,7 +343,12 @@ router.get("/logs/:name", async (req: Request, res: Response) => {
 
     if (!logResult.success) {
       return res.status(404).json({
-        error: logResult.error,
+        error: {
+          code: "NOT_FOUND",
+          message: "Log file not found or could not be read",
+          details: logResult.error,
+          status: 404
+        }
       });
     }
 
@@ -284,11 +357,15 @@ router.get("/logs/:name", async (req: Request, res: Response) => {
     // Return log content as plain text
     res.set("Content-Type", "text/plain");
     res.send(logResult.content);
-  } catch (error) {
+  } catch (error: any) {
     console.error("[services route] Unhandled error in GET /services/logs/:name:", error);
     res.status(500).json({
-      error: "Failed to read log file",
-      details: error instanceof Error ? error.message : "Unknown error",
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to read log file",
+        details: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.message : "Unknown error") : undefined,
+        status: 500
+      }
     });
   }
 });

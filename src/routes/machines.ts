@@ -19,7 +19,7 @@ router.get("/name", authenticateToken, (req: Request, res: Response) => {
       error: {
         code: "INTERNAL_ERROR",
         message: "Failed to retrieve machine information",
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+        details: process.env.NODE_ENV !== 'production' ? error.message : undefined,
         status: 500
       }
     });
@@ -192,7 +192,7 @@ router.post("/", authenticateToken, async (req: Request, res: Response) => {
       error: {
         code: "INTERNAL_ERROR",
         message: "Failed to create machine",
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+        details: process.env.NODE_ENV !== 'production' ? error.message : undefined,
         status: 500
       }
     });
@@ -384,7 +384,7 @@ router.patch("/:publicId", authenticateToken, async (req: Request, res: Response
       error: {
         code: "INTERNAL_ERROR",
         message: "Failed to update machine",
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+        details: process.env.NODE_ENV !== 'production' ? error.message : undefined,
         status: 500
       }
     });
@@ -432,7 +432,7 @@ router.delete("/:publicId", authenticateToken, async (req, res) => {
       error: {
         code: "INTERNAL_ERROR",
         message: "Failed to delete machine",
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+        details: process.env.NODE_ENV !== 'production' ? error.message : undefined,
         status: 500
       }
     });

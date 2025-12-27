@@ -132,7 +132,7 @@ router.get("/", async (req: Request, res: Response) => {
       error: {
         code: "INTERNAL_ERROR",
         message: "Failed to fetch services status",
-        details: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.message : "Unknown error") : undefined,
+        details: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.message : "Unknown error") : undefined,
         status: 500
       }
     });
@@ -226,7 +226,7 @@ router.post("/:serviceFilename/:toggleStatus", async (req: Request, res: Respons
         error: {
           code: "INTERNAL_ERROR",
           message: `Failed to ${toggleStatus} service`,
-          details: process.env.NODE_ENV === 'development' ? toggleResult.error : undefined,
+          details: process.env.NODE_ENV !== 'production' ? toggleResult.error : undefined,
           status: 500
         }
       });
@@ -265,7 +265,7 @@ router.post("/:serviceFilename/:toggleStatus", async (req: Request, res: Respons
       error: {
         code: "INTERNAL_ERROR",
         message: "Failed to toggle service",
-        details: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.message : "Unknown error") : undefined,
+        details: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.message : "Unknown error") : undefined,
         status: 500
       }
     });
@@ -363,7 +363,7 @@ router.get("/logs/:name", async (req: Request, res: Response) => {
       error: {
         code: "INTERNAL_ERROR",
         message: "Failed to read log file",
-        details: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.message : "Unknown error") : undefined,
+        details: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.message : "Unknown error") : undefined,
         status: 500
       }
     });

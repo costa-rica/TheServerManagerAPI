@@ -47,7 +47,7 @@ Build a services array by scanning `/home/nick/nick-systemctl.csv` and validatin
 1. Reads `/home/nick/nick-systemctl.csv` and extracts unique unit filenames from the `unit` column
 2. Builds a service map linking `.timer` files to their corresponding `.service` files
 3. Validates that all service files exist in `/etc/systemd/system/`
-4. Extracts port numbers from each service file (looks for `PORT=` or `0.0.0.0:` followed by exactly 4 digits)
+4. Extracts port numbers from each service file (looks for `PORT=`, `0.0.0.0:`, or `--port` followed by exactly 4 digits)
 5. Returns array of service objects with `filename`, optional `port`, and optional `filenameTimer`
 
 **CSV File Format:**
@@ -192,7 +192,7 @@ curl --location 'http://localhost:3000/machines/check-nick-systemctl' \
 
 - Only processes `.service` and `.timer` files from CSV
 - `.timer` files must have a corresponding `.service` file with the same base name
-- Port extraction looks for exactly 4-digit numbers after `PORT=` or `0.0.0.0:`
+- Port extraction looks for exactly 4-digit numbers after `PORT=`, `0.0.0.0:`, or `--port` (searched in that order)
 - Returns first matching port pattern found in service file
 - Port and timer fields are optional in response (only included if found)
 - All errors follow standardized error response format

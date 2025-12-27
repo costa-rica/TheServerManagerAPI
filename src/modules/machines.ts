@@ -378,7 +378,7 @@ async function checkServiceFilesExist(serviceMap: Map<string, { timerFile?: stri
 
 /**
  * Extracts port number from a service file
- * Looks for "PORT=" or "0.0.0.0:" followed by exactly 4 digits
+ * Looks for "PORT=", "0.0.0.0:", or "--port" followed by exactly 4 digits
  * @param serviceFileName - Name of the service file
  * @returns Port number or undefined if not found
  * @throws Error if port format is invalid (not exactly 4 digits)
@@ -400,10 +400,11 @@ async function extractPortFromServiceFile(serviceFileName: string): Promise<numb
 		};
 	}
 
-	// Search for "PORT=" or "0.0.0.0:" followed by digits
+	// Search for "PORT=", "0.0.0.0:", or "--port" followed by digits
 	const portPatterns = [
 		/PORT=(\d+)/,
-		/0\.0\.0\.0:(\d+)/
+		/0\.0\.0\.0:(\d+)/,
+		/--port\s+(\d+)/
 	];
 
 	for (const pattern of portPatterns) {

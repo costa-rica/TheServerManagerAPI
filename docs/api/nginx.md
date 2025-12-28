@@ -8,7 +8,7 @@ Nginx configuration management endpoints for creating, scanning, and managing ng
 
 ## GET /nginx
 
-Get all nginx configuration files from the database.
+Get all nginx configuration files from the database with populated machine data.
 
 **Authentication:** Required (JWT token)
 
@@ -24,13 +24,16 @@ curl --location 'http://localhost:3000/nginx' \
 ```json
 [
   {
-    "_id": "507f1f77bcf86cd799439011",
     "publicId": "a3f2b1c4-5d6e-7f8a-9b0c-1d2e3f4a5b6c",
     "serverName": "api.example.com",
-    "serverNameArrayOfAdditionalServerNames": ["www.api.example.com"],
     "portNumber": 3000,
+    "serverNameArrayOfAdditionalServerNames": ["www.api.example.com"],
     "appHostServerMachinePublicId": "b4e3c2d1-6f7a-8b9c-0d1e-2f3a4b5c6d7e",
+    "machineNameAppHost": "server-01",
+    "localIpAddressAppHost": "192.168.1.100",
     "nginxHostServerMachinePublicId": "c5d4e3f2-7a8b-9c0d-1e2f-3a4b5c6d7e8f",
+    "machineNameNginxHost": "nginx-server",
+    "localIpAddressNginxHost": "192.168.1.50",
     "framework": "ExpressJs",
     "storeDirectory": "/etc/nginx/sites-available",
     "createdAt": "2025-12-25T10:30:00.000Z",
@@ -39,13 +42,45 @@ curl --location 'http://localhost:3000/nginx' \
 ]
 ```
 
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `publicId` | String | Unique identifier for the nginx config |
+| `serverName` | String | Primary domain name |
+| `portNumber` | Number | Application port number |
+| `serverNameArrayOfAdditionalServerNames` | String[] | Additional domain names |
+| `appHostServerMachinePublicId` | String \| null | Public ID of the machine where app runs |
+| `machineNameAppHost` | String \| null | Name of the app host machine (populated from Machine collection) |
+| `localIpAddressAppHost` | String \| null | Local IP address of the app host machine (populated) |
+| `nginxHostServerMachinePublicId` | String \| null | Public ID of the machine where nginx runs |
+| `machineNameNginxHost` | String \| null | Name of the nginx host machine (populated from Machine collection) |
+| `localIpAddressNginxHost` | String \| null | Local IP address of the nginx host machine (populated) |
+| `framework` | String | Framework type (e.g., "ExpressJs", "Next.js / Python") |
+| `storeDirectory` | String | Directory where config file is stored |
+| `createdAt` | Date | Record creation timestamp |
+| `updatedAt` | Date | Record last update timestamp |
+
 **Error Response (500 Internal Server Error):**
 
 ```json
 {
-  "error": "Failed to fetch nginx files"
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "Failed to fetch nginx files",
+    "details": "Detailed error message (only in development mode)",
+    "status": 500
+  }
 }
 ```
+
+**Behavior:**
+
+- Fetches all NginxFile documents from the database
+- Automatically populates machine data by looking up referenced machines in the Machine collection
+- Uses a single bulk query to fetch all related machines for optimal performance
+- Returns `null` for machine fields if the referenced machine is not found
+- MongoDB internal fields (`_id`, `__v`) are excluded from the response
 
 ---
 
@@ -82,7 +117,7 @@ curl --location 'http://localhost:3000/nginx/scan-nginx-dir' \
       "localIpAddress": "192.168.1.100",
       "framework": "ExpressJs",
       "appHostMachineFound": true,
-      "databaseId": "507f1f77bcf86cd799439011"
+      "publicId": "a3f2b1c4-5d6e-7f8a-9b0c-1d2e3f4a5b6c"
     }
   ],
   "duplicateEntries": [
@@ -322,7 +357,7 @@ curl --location --request DELETE 'http://localhost:3000/nginx/clear' \
 
 ---
 
-## DELETE /nginx/:id
+## DELETE /nginx/:publicId
 
 Delete a specific nginx configuration file and its database record.
 
@@ -332,12 +367,12 @@ Delete a specific nginx configuration file and its database record.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `id` | String | Yes | MongoDB ObjectId of the nginx config |
+| `publicId` | String | Yes | UUID v4 public identifier of the nginx config |
 
 **Sample Request:**
 
 ```bash
-curl --location --request DELETE 'http://localhost:3000/nginx/507f1f77bcf86cd799439011' \
+curl --location --request DELETE 'http://localhost:3000/nginx/a3f2b1c4-5d6e-7f8a-9b0c-1d2e3f4a5b6c' \
 --header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
 ```
 
@@ -351,11 +386,16 @@ curl --location --request DELETE 'http://localhost:3000/nginx/507f1f77bcf86cd799
 }
 ```
 
-**Error Response (400 Bad Request - Invalid ID):**
+**Error Response (400 Bad Request - Invalid publicId):**
 
 ```json
 {
-  "error": "Invalid configuration ID"
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid publicId format",
+    "details": "publicId must be a valid UUID v4",
+    "status": 400
+  }
 }
 ```
 
@@ -363,7 +403,11 @@ curl --location --request DELETE 'http://localhost:3000/nginx/507f1f77bcf86cd799
 
 ```json
 {
-  "error": "Configuration not found"
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Configuration not found",
+    "status": 404
+  }
 }
 ```
 
@@ -371,14 +415,21 @@ curl --location --request DELETE 'http://localhost:3000/nginx/507f1f77bcf86cd799
 
 ```json
 {
-  "error": "Failed to delete nginx configuration"
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "Failed to delete nginx configuration",
+    "details": "Detailed error message (only in development mode)",
+    "status": 500
+  }
 }
 ```
 
 **Behavior:**
 
-- Validates ObjectId format
+- Validates UUID v4 format for publicId parameter
+- Looks up configuration using `publicId` field (not MongoDB `_id`)
 - Constructs file path from `storeDirectory` + `serverName`
 - Attempts to delete physical config file (continues if file doesn't exist)
 - Always deletes database record even if physical file is missing
 - Logs warning if file not found but doesn't fail the request
+- Uses standardized error response format with code, message, details, and status fields

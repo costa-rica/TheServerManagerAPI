@@ -4,9 +4,12 @@ import { randomUUID } from "crypto";
 import { authenticateToken } from "../modules/authentication";
 import { NginxFile } from "../models/nginxFile";
 import { Machine } from "../models/machine";
-import { checkBodyReturnMissing } from "../modules/common";
+import { checkBodyReturnMissing, isValidUUID } from "../modules/common";
 import { verifyTemplateFileExists } from "../modules/fileValidation";
-import { parseNginxConfig } from "../modules/parseNginxConfig";
+import {
+	parseNginxConfig,
+	populateNginxFilesWithMachineData,
+} from "../modules/nginxParseConfig";
 import { getMachineInfo } from "../modules/machines";
 import { createNginxConfigFromTemplate } from "../modules/nginx";
 import { generateNginxScanReport } from "../modules/nginxReports";
@@ -19,400 +22,438 @@ const router = express.Router();
 // Apply JWT authentication to all routes
 router.use(authenticateToken);
 
-// 🔹 GET /nginx: Get all nginx config files
+// 🔹 GET /nginx: Get all nginx config files with populated machine data
 router.get("/", async (req: Request, res: Response) => {
-	try {
-		const nginxFiles = await NginxFile.find();
+  try {
+    const nginxFiles = await NginxFile.find();
 
-		res.json(nginxFiles);
-	} catch (error) {
-		console.error("Error fetching nginx files:", error);
-		res.status(500).json({ error: "Failed to fetch nginx files" });
-	}
+    // Populate nginx files with machine data (machineName and localIpAddress)
+    // and strip MongoDB internal fields (_id, __v)
+    const populatedNginxFiles =
+      await populateNginxFilesWithMachineData(nginxFiles);
+
+    res.json(populatedNginxFiles);
+  } catch (error) {
+    console.error("Error fetching nginx files:", error);
+    res.status(500).json({
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to fetch nginx files",
+        details:
+          process.env.NODE_ENV !== "production"
+            ? error instanceof Error
+              ? error.message
+              : "Unknown error"
+            : undefined,
+        status: 500,
+      },
+    });
+  }
 });
 
 // 🔹 GET /nginx/scan-nginx-dir: Scan nginx directory and parse config files
 router.get("/scan-nginx-dir", async (req: Request, res: Response) => {
-	try {
-		// 1. Get current machine's local IP
-		const { localIpAddress: currentMachineIp } = getMachineInfo();
+  try {
+    // 1. Get current machine's local IP
+    const { localIpAddress: currentMachineIp } = getMachineInfo();
 
-		// 2. Look up nginxHostServerMachineId using current IP
-		const nginxHostMachine = await Machine.findOne({
-			localIpAddress: currentMachineIp,
-		});
-		if (!nginxHostMachine) {
-			return res.status(404).json({
-				error: "Current machine not found in database",
-				currentIp: currentMachineIp,
-			});
-		}
+    // 2. Look up nginxHostServerMachineId using current IP
+    const nginxHostMachine = await Machine.findOne({
+      localIpAddress: currentMachineIp,
+    });
+    if (!nginxHostMachine) {
+      return res.status(404).json({
+        error: "Current machine not found in database",
+        currentIp: currentMachineIp,
+      });
+    }
 
-		// 3. Read files from /etc/nginx/sites-available/
-		const nginxDir = process.env.PATH_ETC_NGINX_SITES_AVAILABLE;
-		let files: string[];
+    // 3. Read files from /etc/nginx/sites-available/
+    const nginxDir = process.env.PATH_ETC_NGINX_SITES_AVAILABLE;
+    let files: string[];
 
-		try {
-			files = await fs.promises.readdir(nginxDir);
-		} catch (error) {
-			return res.status(500).json({
-				error: `Failed to read nginx directory: ${nginxDir}`,
-				details: error instanceof Error ? error.message : "Unknown error",
-			});
-		}
+    try {
+      files = await fs.promises.readdir(nginxDir);
+    } catch (error) {
+      return res.status(500).json({
+        error: `Failed to read nginx directory: ${nginxDir}`,
+        details: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
 
-		// 4. Filter out 'default'
-		const configFiles = files.filter((file) => file !== "default");
+    // 4. Filter out 'default'
+    const configFiles = files.filter((file) => file !== "default");
 
-		// 5. Parse each file
-		const newEntries = [];
-		const duplicates = [];
-		const errors = [];
+    // 5. Parse each file
+    const newEntries = [];
+    const duplicates = [];
+    const errors = [];
 
-		for (const file of configFiles) {
-			try {
-				const filePath = path.join(nginxDir, file);
-				const content = await fs.promises.readFile(filePath, "utf-8");
-				const parsed = parseNginxConfig(content);
+    for (const file of configFiles) {
+      try {
+        const filePath = path.join(nginxDir, file);
+        const content = await fs.promises.readFile(filePath, "utf-8");
+        const parsed = parseNginxConfig(content);
 
-				// Skip if no server names found
-				if (parsed.serverNames.length === 0) {
-					errors.push({
-						fileName: file,
-						error: "No server names found in config file",
-					});
-					continue;
-				}
+        // Skip if no server names found
+        if (parsed.serverNames.length === 0) {
+          errors.push({
+            fileName: file,
+            error: "No server names found in config file",
+          });
+          continue;
+        }
 
-				// Look up appHostServerMachinePublicId
-				let appHostMachine = null;
-				if (parsed.localIpAddress) {
-					appHostMachine = await Machine.findOne({
-						localIpAddress: parsed.localIpAddress,
-					});
-				}
+        // Look up appHostServerMachinePublicId
+        let appHostMachine = null;
+        if (parsed.localIpAddress) {
+          appHostMachine = await Machine.findOne({
+            localIpAddress: parsed.localIpAddress,
+          });
+        }
 
-				// Check for duplicates by primary server name
-				const primaryServerName = parsed.serverNames[0];
-				const existing = await NginxFile.findOne({
-					serverName: primaryServerName,
-				});
+        // Check for duplicates by primary server name
+        const primaryServerName = parsed.serverNames[0];
+        const existing = await NginxFile.findOne({
+          serverName: primaryServerName,
+        });
 
-				if (existing) {
-					duplicates.push({
-						fileName: file,
-						serverName: primaryServerName,
-						additionalServerNames: parsed.serverNames.slice(1),
-						portNumber: parsed.listenPort,
-						localIpAddress: parsed.localIpAddress,
-						framework: parsed.framework,
-						reason: "Server name already exists in database",
-					});
-				} else {
-					// Prepare new entry data
-					const newEntryData = {
-						publicId: randomUUID(),
-						serverName: primaryServerName,
-						serverNameArrayOfAdditionalServerNames: parsed.serverNames.slice(1),
-						portNumber: parsed.listenPort || 0,
-						appHostServerMachinePublicId: appHostMachine?.publicId || null,
-						nginxHostServerMachinePublicId: nginxHostMachine.publicId,
-						framework: parsed.framework,
-						storeDirectory: nginxDir,
-					};
+        if (existing) {
+          duplicates.push({
+            fileName: file,
+            serverName: primaryServerName,
+            additionalServerNames: parsed.serverNames.slice(1),
+            portNumber: parsed.listenPort,
+            localIpAddress: parsed.localIpAddress,
+            framework: parsed.framework,
+            reason: "Server name already exists in database",
+          });
+        } else {
+          // Prepare new entry data
+          const newEntryData = {
+            publicId: randomUUID(),
+            serverName: primaryServerName,
+            serverNameArrayOfAdditionalServerNames: parsed.serverNames.slice(1),
+            portNumber: parsed.listenPort || 0,
+            appHostServerMachinePublicId: appHostMachine?.publicId || null,
+            nginxHostServerMachinePublicId: nginxHostMachine.publicId,
+            framework: parsed.framework,
+            storeDirectory: nginxDir,
+          };
 
-					// Insert into database
-					const createdEntry = await NginxFile.create(newEntryData);
+          // Insert into database
+          const createdEntry = await NginxFile.create(newEntryData);
 
-					newEntries.push({
-						fileName: file,
-						serverName: primaryServerName,
-						additionalServerNames: parsed.serverNames.slice(1),
-						portNumber: parsed.listenPort,
-						localIpAddress: parsed.localIpAddress,
-						framework: parsed.framework,
-						appHostMachineFound: !!appHostMachine,
-						databaseId: createdEntry._id,
-					});
-				}
-			} catch (error) {
-				errors.push({
-					fileName: file,
-					error: error instanceof Error ? error.message : "Unknown error",
-				});
-			}
-		}
+          newEntries.push({
+            fileName: file,
+            serverName: primaryServerName,
+            additionalServerNames: parsed.serverNames.slice(1),
+            portNumber: parsed.listenPort,
+            localIpAddress: parsed.localIpAddress,
+            framework: parsed.framework,
+            appHostMachineFound: !!appHostMachine,
+            publicId: createdEntry.publicId,
+          });
+        }
+      } catch (error) {
+        errors.push({
+          fileName: file,
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+      }
+    }
 
-		// 6. Generate CSV report
-		const reportPath = generateNginxScanReport(
-			newEntries,
-			duplicates,
-			errors
-		);
+    // 6. Generate CSV report
+    const reportPath = generateNginxScanReport(newEntries, duplicates, errors);
 
-		// 7. Return response
-		res.json({
-			scanned: configFiles.length,
-			new: newEntries.length,
-			duplicates: duplicates.length,
-			errors: errors.length,
-			currentMachineIp,
-			nginxHostMachinePublicId: nginxHostMachine.publicId,
-			reportPath,
-			newEntries,
-			duplicateEntries: duplicates,
-			errorEntries: errors,
-		});
-	} catch (error) {
-		console.error("Error scanning nginx directory:", error);
-		res.status(500).json({ error: "Failed to scan nginx directory" });
-	}
+    // 7. Return response
+    res.json({
+      scanned: configFiles.length,
+      new: newEntries.length,
+      duplicates: duplicates.length,
+      errors: errors.length,
+      currentMachineIp,
+      nginxHostMachinePublicId: nginxHostMachine.publicId,
+      reportPath,
+      newEntries,
+      duplicateEntries: duplicates,
+      errorEntries: errors,
+    });
+  } catch (error) {
+    console.error("Error scanning nginx directory:", error);
+    res.status(500).json({ error: "Failed to scan nginx directory" });
+  }
 });
 
 // 🔹 POST /nginx/create-config-file: Create nginx configuration file
 router.post("/create-config-file", async (req: Request, res: Response) => {
-	// Log request body for testing
-	console.log("📥 POST /nginx/create-config-file - Request body:");
-	console.log(JSON.stringify(req.body, null, 2));
-	console.log("Body type:", typeof req.body);
-	console.log("Body keys:", Object.keys(req.body || {}));
-	try {
-		// Validate required fields
-		const { isValid, missingKeys } = checkBodyReturnMissing(req.body, [
-			"templateFileName",
-			"serverNamesArray",
-			"appHostServerMachinePublicId",
-			"portNumber",
-			"saveDestination",
-		]);
+  // Log request body for testing
+  console.log("📥 POST /nginx/create-config-file - Request body:");
+  console.log(JSON.stringify(req.body, null, 2));
+  console.log("Body type:", typeof req.body);
+  console.log("Body keys:", Object.keys(req.body || {}));
+  try {
+    // Validate required fields
+    const { isValid, missingKeys } = checkBodyReturnMissing(req.body, [
+      "templateFileName",
+      "serverNamesArray",
+      "appHostServerMachinePublicId",
+      "portNumber",
+      "saveDestination",
+    ]);
 
-		if (!isValid) {
-			return res
-				.status(400)
-				.json({ error: `Missing ${missingKeys.join(", ")}` });
-		}
+    if (!isValid) {
+      return res
+        .status(400)
+        .json({ error: `Missing ${missingKeys.join(", ")}` });
+    }
 
-		const {
-			templateFileName,
-			serverNamesArray,
-			appHostServerMachinePublicId,
-			portNumber,
-			saveDestination,
-		} = req.body;
+    const {
+      templateFileName,
+      serverNamesArray,
+      appHostServerMachinePublicId,
+      portNumber,
+      saveDestination,
+    } = req.body;
 
-		// Validate and map templateFileName to actual file
-		if (
-			typeof templateFileName !== "string" ||
-			templateFileName.trim() === ""
-		) {
-			return res
-				.status(400)
-				.json({ error: "templateFileName must be a non-empty string" });
-		}
+    // Validate and map templateFileName to actual file
+    if (
+      typeof templateFileName !== "string" ||
+      templateFileName.trim() === ""
+    ) {
+      return res
+        .status(400)
+        .json({ error: "templateFileName must be a non-empty string" });
+    }
 
-		// Map template type to actual filename
-		const templateFileMap: Record<string, string> = {
-			expressJs: "expressJsSitesAvailable.txt",
-			nextJsPython: "nextJsPythonSitesAvailable.txt",
-		};
+    // Map template type to actual filename
+    const templateFileMap: Record<string, string> = {
+      expressJs: "expressJsSitesAvailable.txt",
+      nextJsPython: "nextJsPythonSitesAvailable.txt",
+    };
 
-		const actualTemplateFileName = templateFileMap[templateFileName];
-		if (!actualTemplateFileName) {
-			return res.status(400).json({
-				error: `Invalid templateFileName. Must be one of: ${Object.keys(
-					templateFileMap
-				).join(", ")}`,
-			});
-		}
+    const actualTemplateFileName = templateFileMap[templateFileName];
+    if (!actualTemplateFileName) {
+      return res.status(400).json({
+        error: `Invalid templateFileName. Must be one of: ${Object.keys(
+          templateFileMap
+        ).join(", ")}`,
+      });
+    }
 
-		// Validate serverNamesArray (array of strings)
-		if (!Array.isArray(serverNamesArray) || serverNamesArray.length === 0) {
-			return res
-				.status(400)
-				.json({ error: "serverNamesArray must be a non-empty array" });
-		}
+    // Validate serverNamesArray (array of strings)
+    if (!Array.isArray(serverNamesArray) || serverNamesArray.length === 0) {
+      return res
+        .status(400)
+        .json({ error: "serverNamesArray must be a non-empty array" });
+    }
 
-		if (
-			!serverNamesArray.every(
-				(name) => typeof name === "string" && name.trim() !== ""
-			)
-		) {
-			return res
-				.status(400)
-				.json({ error: "All server names must be non-empty strings" });
-		}
+    if (
+      !serverNamesArray.every(
+        (name) => typeof name === "string" && name.trim() !== ""
+      )
+    ) {
+      return res
+        .status(400)
+        .json({ error: "All server names must be non-empty strings" });
+    }
 
-		// Validate appHostServerMachinePublicId (non-empty string)
-		if (
-			typeof appHostServerMachinePublicId !== "string" ||
-			appHostServerMachinePublicId.trim() === ""
-		) {
-			return res.status(400).json({
-				error: "appHostServerMachinePublicId must be a non-empty string",
-			});
-		}
+    // Validate appHostServerMachinePublicId (non-empty string)
+    if (
+      typeof appHostServerMachinePublicId !== "string" ||
+      appHostServerMachinePublicId.trim() === ""
+    ) {
+      return res.status(400).json({
+        error: "appHostServerMachinePublicId must be a non-empty string",
+      });
+    }
 
-		// Verify machine exists in database
-		const machine = await Machine.findOne({
-			publicId: appHostServerMachinePublicId,
-		});
-		if (!machine) {
-			return res.status(400).json({
-				error: "Machine with specified appHostServerMachinePublicId not found",
-			});
-		}
+    // Verify machine exists in database
+    const machine = await Machine.findOne({
+      publicId: appHostServerMachinePublicId,
+    });
+    if (!machine) {
+      return res.status(400).json({
+        error: "Machine with specified appHostServerMachinePublicId not found",
+      });
+    }
 
-		// Validate portNumber (number, 1-65535)
-		if (
-			typeof portNumber !== "number" ||
-			portNumber < 1 ||
-			portNumber > 65535
-		) {
-			return res
-				.status(400)
-				.json({ error: "portNumber must be a number between 1 and 65535" });
-		}
+    // Validate portNumber (number, 1-65535)
+    if (
+      typeof portNumber !== "number" ||
+      portNumber < 1 ||
+      portNumber > 65535
+    ) {
+      return res
+        .status(400)
+        .json({ error: "portNumber must be a number between 1 and 65535" });
+    }
 
-		// Validate saveDestination (must be a non-empty string path)
-		if (typeof saveDestination !== "string" || saveDestination.trim() === "") {
-			return res.status(400).json({
-				error: "saveDestination must be a non-empty string path",
-			});
-		}
+    // Validate saveDestination (must be a non-empty string path)
+    if (typeof saveDestination !== "string" || saveDestination.trim() === "") {
+      return res.status(400).json({
+        error: "saveDestination must be a non-empty string path",
+      });
+    }
 
-		// Verify template file exists
-		const fileValidation = verifyTemplateFileExists(actualTemplateFileName);
-		if (!fileValidation.exists) {
-			return res.status(400).json({ error: fileValidation.error });
-		}
+    // Verify template file exists
+    const fileValidation = verifyTemplateFileExists(actualTemplateFileName);
+    if (!fileValidation.exists) {
+      return res.status(400).json({ error: fileValidation.error });
+    }
 
-		// Get current machine's IP to find nginxHostServerMachineId
-		const { localIpAddress: currentMachineIp } = getMachineInfo();
-		const nginxHostMachine = await Machine.findOne({
-			localIpAddress: currentMachineIp,
-		});
+    // Get current machine's IP to find nginxHostServerMachineId
+    const { localIpAddress: currentMachineIp } = getMachineInfo();
+    const nginxHostMachine = await Machine.findOne({
+      localIpAddress: currentMachineIp,
+    });
 
-		if (!nginxHostMachine) {
-			return res.status(404).json({
-				error: "Current machine not found in database",
-				currentIp: currentMachineIp,
-			});
-		}
+    if (!nginxHostMachine) {
+      return res.status(404).json({
+        error: "Current machine not found in database",
+        currentIp: currentMachineIp,
+      });
+    }
 
-		// Machine document already validated and fetched above (line 217)
-		// Use it to get the local IP address
-		if (!machine.localIpAddress) {
-			return res.status(400).json({
-				error: "Machine document does not have a localIpAddress field",
-			});
-		}
+    // Machine document already validated and fetched above (line 217)
+    // Use it to get the local IP address
+    if (!machine.localIpAddress) {
+      return res.status(400).json({
+        error: "Machine document does not have a localIpAddress field",
+      });
+    }
 
-		// Create nginx config file from template
-		const configResult = await createNginxConfigFromTemplate({
-			templateFilePath: fileValidation.fullPath!,
-			serverNamesArray,
-			localIpAddress: machine.localIpAddress,
-			portNumber,
-			saveDestination,
-		});
+    // Create nginx config file from template
+    const configResult = await createNginxConfigFromTemplate({
+      templateFilePath: fileValidation.fullPath!,
+      serverNamesArray,
+      localIpAddress: machine.localIpAddress,
+      portNumber,
+      saveDestination,
+    });
 
-		if (!configResult.success) {
-			return res.status(500).json({
-				error: "Failed to create nginx config file",
-				details: configResult.error,
-			});
-		}
+    if (!configResult.success) {
+      return res.status(500).json({
+        error: "Failed to create nginx config file",
+        details: configResult.error,
+      });
+    }
 
-		// Determine framework (default to ExpressJs)
-		// Note: Could be enhanced to detect framework from template or request
-		const framework = "ExpressJs";
+    // Determine framework (default to ExpressJs)
+    // Note: Could be enhanced to detect framework from template or request
+    const framework = "ExpressJs";
 
-		// Use saveDestination as the storeDirectory
-		const storeDirectory = saveDestination;
+    // Use saveDestination as the storeDirectory
+    const storeDirectory = saveDestination;
 
-		// Auto-generate publicId
-		const publicId = randomUUID();
+    // Auto-generate publicId
+    const publicId = randomUUID();
 
-		// Create NginxFile database record
-		const nginxFileRecord = await NginxFile.create({
-			publicId,
-			serverName: serverNamesArray[0],
-			serverNameArrayOfAdditionalServerNames: serverNamesArray.slice(1),
-			portNumber,
-			appHostServerMachinePublicId,
-			nginxHostServerMachinePublicId: nginxHostMachine.publicId,
-			framework,
-			storeDirectory,
-		});
+    // Create NginxFile database record
+    const nginxFileRecord = await NginxFile.create({
+      publicId,
+      serverName: serverNamesArray[0],
+      serverNameArrayOfAdditionalServerNames: serverNamesArray.slice(1),
+      portNumber,
+      appHostServerMachinePublicId,
+      nginxHostServerMachinePublicId: nginxHostMachine.publicId,
+      framework,
+      storeDirectory,
+    });
 
-		res.status(201).json({
-			message: "Nginx config file created successfully",
-			filePath: configResult.filePath,
-			databaseRecord: nginxFileRecord,
-		});
-	} catch (error) {
-		console.error("Error creating nginx config file:", error);
-		res.status(500).json({ error: "Failed to create nginx config file" });
-	}
+    res.status(201).json({
+      message: "Nginx config file created successfully",
+      filePath: configResult.filePath,
+      databaseRecord: nginxFileRecord,
+    });
+  } catch (error) {
+    console.error("Error creating nginx config file:", error);
+    res.status(500).json({ error: "Failed to create nginx config file" });
+  }
 });
 
 // 🔹 DELETE /nginx/clear: Clear all nginx files from database
 router.delete("/clear", async (req: Request, res: Response) => {
-	try {
-		const result = await NginxFile.deleteMany({});
+  try {
+    const result = await NginxFile.deleteMany({});
 
-		res.json({
-			message: "NginxFiles collection cleared successfully",
-			deletedCount: result.deletedCount,
-		});
-	} catch (error) {
-		console.error("Error clearing nginx files:", error);
-		res.status(500).json({ error: "Failed to clear nginx files" });
-	}
+    res.json({
+      message: "NginxFiles collection cleared successfully",
+      deletedCount: result.deletedCount,
+    });
+  } catch (error) {
+    console.error("Error clearing nginx files:", error);
+    res.status(500).json({ error: "Failed to clear nginx files" });
+  }
 });
 
-// 🔹 DELETE /nginx/:id: Delete nginx config file and database record
-router.delete("/:id", async (req: Request, res: Response) => {
-	try {
-		const { id } = req.params;
+// 🔹 DELETE /nginx/:publicId: Delete nginx config file and database record
+router.delete("/:publicId", async (req: Request, res: Response) => {
+  try {
+    const { publicId } = req.params;
 
-		// Validate ObjectId
-		if (!mongoose.Types.ObjectId.isValid(id)) {
-			return res.status(400).json({ error: "Invalid configuration ID" });
-		}
+    // Validate publicId format (UUID v4)
+    if (!isValidUUID(publicId)) {
+      return res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid publicId format",
+          details: "publicId must be a valid UUID v4",
+          status: 400,
+        },
+      });
+    }
 
-		// Find the configuration document
-		const config = await NginxFile.findById(id);
-		if (!config) {
-			return res.status(404).json({ error: "Configuration not found" });
-		}
+    // Find the configuration document
+    const config = await NginxFile.findOne({ publicId });
+    if (!config) {
+      return res.status(404).json({
+        error: {
+          code: "NOT_FOUND",
+          message: "Configuration not found",
+          status: 404,
+        },
+      });
+    }
 
-		// Construct file path
-		const filePath = path.join(config.storeDirectory, config.serverName);
+    // Construct file path
+    const filePath = path.join(config.storeDirectory, config.serverName);
 
-		// Delete physical file (continue even if file doesn't exist)
-		try {
-			await fs.promises.unlink(filePath);
-			console.log(`🗑️  Deleted nginx config file: ${filePath}`);
-		} catch (error) {
-			// Log warning but continue - file may already be deleted
-			console.warn(
-				`⚠️  File not found (will still delete DB entry): ${filePath}`
-			);
-		}
+    // Delete physical file (continue even if file doesn't exist)
+    try {
+      await fs.promises.unlink(filePath);
+      console.log(`🗑️  Deleted nginx config file: ${filePath}`);
+    } catch (error) {
+      // Log warning but continue - file may already be deleted
+      console.warn(
+        `⚠️  File not found (will still delete DB entry): ${filePath}`
+      );
+    }
 
-		// Delete database document
-		await NginxFile.findByIdAndDelete(id);
+    // Delete database document
+    await NginxFile.findOneAndDelete({ publicId });
 
-		res.json({
-			message: "Nginx configuration deleted successfully",
-			serverName: config.serverName,
-			filePath,
-		});
-	} catch (error) {
-		console.error("Error deleting nginx configuration:", error);
-		res.status(500).json({ error: "Failed to delete nginx configuration" });
-	}
+    res.json({
+      message: "Nginx configuration deleted successfully",
+      serverName: config.serverName,
+      filePath,
+    });
+  } catch (error) {
+    console.error("Error deleting nginx configuration:", error);
+    res.status(500).json({
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to delete nginx configuration",
+        details:
+          process.env.NODE_ENV !== "production"
+            ? error instanceof Error
+              ? error.message
+              : "Unknown error"
+            : undefined,
+        status: 500,
+      },
+    });
+  }
 });
 
 export default router;

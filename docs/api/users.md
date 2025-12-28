@@ -65,15 +65,25 @@ curl --location 'http://localhost:3000/users/register' \
 
 ```json
 {
-  "error": "Missing email, password"
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Request validation failed",
+    "details": "Missing required fields: email, password",
+    "status": 400
+  }
 }
 ```
 
-**Error Response (400 Bad Request - User Exists):**
+**Error Response (409 Conflict - User Exists):**
 
 ```json
 {
-  "error": "User already exists"
+  "error": {
+    "code": "CONFLICT",
+    "message": "User already exists",
+    "details": "A user with this email address is already registered",
+    "status": 409
+  }
 }
 ```
 
@@ -129,23 +139,24 @@ curl --location 'http://localhost:3000/users/login' \
 
 ```json
 {
-  "error": "Missing email, password"
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Request validation failed",
+    "details": "Missing required fields: email, password",
+    "status": 400
+  }
 }
 ```
 
-**Error Response (400 Bad Request - User Not Found):**
+**Error Response (401 Unauthorized - Invalid Credentials):**
 
 ```json
 {
-  "error": "User not found"
-}
-```
-
-**Error Response (400 Bad Request - Invalid Password):**
-
-```json
-{
-  "error": "Invalid password"
+  "error": {
+    "code": "AUTH_FAILED",
+    "message": "Invalid credentials",
+    "status": 401
+  }
 }
 ```
 
@@ -191,7 +202,12 @@ curl --location 'http://localhost:3000/users/request-reset-password-email' \
 
 ```json
 {
-  "error": "Email is required."
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Request validation failed",
+    "details": "Email is required",
+    "status": 400
+  }
 }
 ```
 
@@ -199,7 +215,11 @@ curl --location 'http://localhost:3000/users/request-reset-password-email' \
 
 ```json
 {
-  "error": "User not found."
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "User not found",
+    "status": 404
+  }
 }
 ```
 
@@ -248,7 +268,12 @@ curl --location 'http://localhost:3000/users/reset-password-with-new-password' \
 
 ```json
 {
-  "error": "Missing token, newPassword"
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Request validation failed",
+    "details": "Missing required fields: token, newPassword",
+    "status": 400
+  }
 }
 ```
 
@@ -256,7 +281,11 @@ curl --location 'http://localhost:3000/users/reset-password-with-new-password' \
 
 ```json
 {
-  "error": "Invalid or expired token."
+  "error": {
+    "code": "AUTH_FAILED",
+    "message": "Invalid or expired token",
+    "status": 401
+  }
 }
 ```
 
@@ -264,7 +293,11 @@ curl --location 'http://localhost:3000/users/reset-password-with-new-password' \
 
 ```json
 {
-  "error": "Reset token has expired."
+  "error": {
+    "code": "AUTH_FAILED",
+    "message": "Reset token has expired",
+    "status": 401
+  }
 }
 ```
 
@@ -272,7 +305,11 @@ curl --location 'http://localhost:3000/users/reset-password-with-new-password' \
 
 ```json
 {
-  "error": "User not found."
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "User not found",
+    "status": 404
+  }
 }
 ```
 
@@ -280,7 +317,12 @@ curl --location 'http://localhost:3000/users/reset-password-with-new-password' \
 
 ```json
 {
-  "error": "Internal server error"
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "Failed to reset password",
+    "details": "Detailed error message (only in development mode)",
+    "status": 500
+  }
 }
 ```
 

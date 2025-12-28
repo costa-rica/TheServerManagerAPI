@@ -20,8 +20,12 @@ router.get("/downloads", async (req: Request, res: Response) => {
 		// Check if directory exists
 		if (!fs.existsSync(statusReportsDir)) {
 			return res.status(404).json({
-				error: "Status reports directory not found",
-				path: statusReportsDir,
+				error: {
+					code: "NOT_FOUND",
+					message: "Status reports directory not found",
+					details: process.env.NODE_ENV !== 'production' ? `Path: ${statusReportsDir}` : undefined,
+					status: 404
+				}
 			});
 		}
 
@@ -54,7 +58,14 @@ router.get("/downloads", async (req: Request, res: Response) => {
 		});
 	} catch (error) {
 		console.error("Error listing download files:", error);
-		res.status(500).json({ error: "Failed to list download files" });
+		res.status(500).json({
+			error: {
+				code: "INTERNAL_ERROR",
+				message: "Failed to list download files",
+				details: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.message : "Unknown error") : undefined,
+				status: 500
+			}
+		});
 	}
 });
 
@@ -65,7 +76,14 @@ router.get("/downloads/:filename", async (req: Request, res: Response) => {
 
 		// Validate filename (prevent directory traversal)
 		if (filename.includes("..") || filename.includes("/") || filename.includes("\\")) {
-			return res.status(400).json({ error: "Invalid filename" });
+			return res.status(400).json({
+				error: {
+					code: "VALIDATION_ERROR",
+					message: "Invalid filename",
+					details: "Filename cannot contain path traversal characters",
+					status: 400
+				}
+			});
 		}
 
 		const statusReportsDir = path.join(
@@ -77,13 +95,25 @@ router.get("/downloads/:filename", async (req: Request, res: Response) => {
 
 		// Check if file exists
 		if (!fs.existsSync(filePath)) {
-			return res.status(404).json({ error: "File not found" });
+			return res.status(404).json({
+				error: {
+					code: "NOT_FOUND",
+					message: "File not found",
+					status: 404
+				}
+			});
 		}
 
 		// Check if it's a file (not a directory)
 		const stats = await fs.promises.stat(filePath);
 		if (!stats.isFile()) {
-			return res.status(400).json({ error: "Not a file" });
+			return res.status(400).json({
+				error: {
+					code: "VALIDATION_ERROR",
+					message: "Requested path is not a file",
+					status: 400
+				}
+			});
 		}
 
 		// Set headers for file download
@@ -98,13 +128,27 @@ router.get("/downloads/:filename", async (req: Request, res: Response) => {
 		fileStream.on("error", (error) => {
 			console.error("Error streaming file:", error);
 			if (!res.headersSent) {
-				res.status(500).json({ error: "Failed to download file" });
+				res.status(500).json({
+					error: {
+						code: "INTERNAL_ERROR",
+						message: "Failed to stream file",
+						details: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.message : "Unknown error") : undefined,
+						status: 500
+					}
+				});
 			}
 		});
 	} catch (error) {
 		console.error("Error downloading file:", error);
 		if (!res.headersSent) {
-			res.status(500).json({ error: "Failed to download file" });
+			res.status(500).json({
+				error: {
+					code: "INTERNAL_ERROR",
+					message: "Failed to download file",
+					details: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.message : "Unknown error") : undefined,
+					status: 500
+				}
+			});
 		}
 	}
 });

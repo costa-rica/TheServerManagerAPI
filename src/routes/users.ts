@@ -20,12 +20,26 @@ router.post("/register", async (req, res) => {
 	]);
 
 	if (!isValid) {
-		return res.status(400).json({ error: `Missing ${missingKeys.join(", ")}` });
+		return res.status(400).json({
+			error: {
+				code: "VALIDATION_ERROR",
+				message: "Request validation failed",
+				details: `Missing required fields: ${missingKeys.join(", ")}`,
+				status: 400
+			}
+		});
 	}
 
 	const existingUser = await User.findOne({ email });
 	if (existingUser) {
-		return res.status(400).json({ error: "User already exists" });
+		return res.status(409).json({
+			error: {
+				code: "CONFLICT",
+				message: "User already exists",
+				details: "A user with this email address is already registered",
+				status: 409
+			}
+		});
 	}
 
 	const hashedPassword = await bcrypt.hash(password, 10);
@@ -54,17 +68,36 @@ router.post("/login", async (req, res) => {
 	]);
 
 	if (!isValid) {
-		return res.status(400).json({ error: `Missing ${missingKeys.join(", ")}` });
+		return res.status(400).json({
+			error: {
+				code: "VALIDATION_ERROR",
+				message: "Request validation failed",
+				details: `Missing required fields: ${missingKeys.join(", ")}`,
+				status: 400
+			}
+		});
 	}
 
 	const user = await User.findOne({ email });
 	if (!user) {
-		return res.status(400).json({ error: "User not found" });
+		return res.status(401).json({
+			error: {
+				code: "AUTH_FAILED",
+				message: "Invalid credentials",
+				status: 401
+			}
+		});
 	}
 
 	const passwordMatch = await bcrypt.compare(password, user.password);
 	if (!passwordMatch) {
-		return res.status(400).json({ error: "Invalid password" });
+		return res.status(401).json({
+			error: {
+				code: "AUTH_FAILED",
+				message: "Invalid credentials",
+				status: 401
+			}
+		});
 	}
 
 	const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET);
@@ -83,12 +116,25 @@ router.post(
 		const { email } = req.body;
 
 		if (!email) {
-			return res.status(400).json({ error: "Email is required." });
+			return res.status(400).json({
+				error: {
+					code: "VALIDATION_ERROR",
+					message: "Request validation failed",
+					details: "Email is required",
+					status: 400
+				}
+			});
 		}
 
 		const user = await User.findOne({ email });
 		if (!user) {
-			return res.status(404).json({ error: "User not found." });
+			return res.status(404).json({
+				error: {
+					code: "NOT_FOUND",
+					message: "User not found",
+					status: 404
+				}
+			});
 		}
 
 		const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET!, {
@@ -118,9 +164,14 @@ router.post(
 		]);
 
 		if (!isValid) {
-			return res
-				.status(400)
-				.json({ error: `Missing ${missingKeys.join(", ")}` });
+			return res.status(400).json({
+				error: {
+					code: "VALIDATION_ERROR",
+					message: "Request validation failed",
+					details: `Missing required fields: ${missingKeys.join(", ")}`,
+					status: 400
+				}
+			});
 		}
 
 		try {
@@ -132,7 +183,13 @@ router.post(
 			// Find the user by ID from the token
 			const user = await User.findById(decoded.id);
 			if (!user) {
-				return res.status(404).json({ error: "User not found." });
+				return res.status(404).json({
+					error: {
+						code: "NOT_FOUND",
+						message: "User not found",
+						status: 404
+					}
+				});
 			}
 
 			// Hash the new password
@@ -146,14 +203,33 @@ router.post(
 		} catch (error) {
 			// Handle token verification errors
 			if (error instanceof jwt.JsonWebTokenError) {
-				return res.status(401).json({ error: "Invalid or expired token." });
+				return res.status(401).json({
+					error: {
+						code: "AUTH_FAILED",
+						message: "Invalid or expired token",
+						status: 401
+					}
+				});
 			}
 			if (error instanceof jwt.TokenExpiredError) {
-				return res.status(401).json({ error: "Reset token has expired." });
+				return res.status(401).json({
+					error: {
+						code: "AUTH_FAILED",
+						message: "Reset token has expired",
+						status: 401
+					}
+				});
 			}
 
 			console.error("Error resetting password:", error);
-			res.status(500).json({ error: "Internal server error" });
+			res.status(500).json({
+				error: {
+					code: "INTERNAL_ERROR",
+					message: "Failed to reset password",
+					details: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.message : "Unknown error") : undefined,
+					status: 500
+				}
+			});
 		}
 	}
 );

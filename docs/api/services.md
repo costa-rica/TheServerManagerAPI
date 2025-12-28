@@ -55,7 +55,11 @@ curl --location 'http://localhost:3000/services' \
 
 ```json
 {
-  "error": "This endpoint only works in production environment on Ubuntu OS"
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "This endpoint only works in production environment on Ubuntu OS",
+    "status": 400
+  }
 }
 ```
 
@@ -63,7 +67,12 @@ curl --location 'http://localhost:3000/services' \
 
 ```json
 {
-  "error": "Machine with name \"ubuntu-server-01\" not found in database"
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Machine not found in database",
+    "details": "Machine with name \"ubuntu-server-01\" not found in database",
+    "status": 404
+  }
 }
 ```
 
@@ -71,7 +80,12 @@ curl --location 'http://localhost:3000/services' \
 
 ```json
 {
-  "error": "Machine \"ubuntu-server-01\" has no services configured in servicesArray"
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "No services configured for this machine",
+    "details": "Machine \"ubuntu-server-01\" has no services configured in servicesArray",
+    "status": 404
+  }
 }
 ```
 
@@ -79,8 +93,12 @@ curl --location 'http://localhost:3000/services' \
 
 ```json
 {
-  "error": "Failed to fetch services status",
-  "details": "Error details here"
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "Failed to fetch services status",
+    "details": "Detailed error message (only in development mode)",
+    "status": 500
+  }
 }
 ```
 
@@ -153,7 +171,11 @@ curl --location --request POST 'http://localhost:3000/services/personalweb03-api
 
 ```json
 {
-  "error": "This endpoint only works in production environment on Ubuntu OS"
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "This endpoint only works in production environment on Ubuntu OS",
+    "status": 400
+  }
 }
 ```
 
@@ -161,7 +183,12 @@ curl --location --request POST 'http://localhost:3000/services/personalweb03-api
 
 ```json
 {
-  "error": "Invalid toggleStatus. Must be one of: start, stop, restart, reload, enable, disable"
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid toggleStatus",
+    "details": "Invalid toggleStatus. Must be one of: start, stop, restart, reload, enable, disable",
+    "status": 400
+  }
 }
 ```
 
@@ -169,7 +196,12 @@ curl --location --request POST 'http://localhost:3000/services/personalweb03-api
 
 ```json
 {
-  "error": "Machine with name \"ubuntu-server-01\" not found in database"
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Machine not found in database",
+    "details": "Machine with name \"ubuntu-server-01\" not found in database",
+    "status": 404
+  }
 }
 ```
 
@@ -177,7 +209,12 @@ curl --location --request POST 'http://localhost:3000/services/personalweb03-api
 
 ```json
 {
-  "error": "Machine \"ubuntu-server-01\" has no services configured in servicesArray"
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "No services configured for this machine",
+    "details": "Machine \"ubuntu-server-01\" has no services configured in servicesArray",
+    "status": 404
+  }
 }
 ```
 
@@ -185,7 +222,12 @@ curl --location --request POST 'http://localhost:3000/services/personalweb03-api
 
 ```json
 {
-  "error": "Service with filename \"personalweb03-api.service\" is not configured in this machine's servicesArray"
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Service not found",
+    "details": "Service with filename \"personalweb03-api.service\" is not configured in this machine's servicesArray",
+    "status": 404
+  }
 }
 ```
 
@@ -193,8 +235,12 @@ curl --location --request POST 'http://localhost:3000/services/personalweb03-api
 
 ```json
 {
-  "error": "Failed to start service personalweb03-api.service",
-  "details": "Command 'sudo systemctl start personalweb03-api.service' failed with exit code 1"
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "Failed to start service",
+    "details": "Command 'sudo systemctl start personalweb03-api.service' failed with exit code 1 (only in development mode)",
+    "status": 500
+  }
 }
 ```
 
@@ -202,8 +248,12 @@ curl --location --request POST 'http://localhost:3000/services/personalweb03-api
 
 ```json
 {
-  "error": "Failed to toggle service",
-  "details": "Error details here"
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "Failed to toggle service",
+    "details": "Detailed error message (only in development mode)",
+    "status": 500
+  }
 }
 ```
 
@@ -277,7 +327,11 @@ Content-Type: text/plain
 
 ```json
 {
-  "error": "This endpoint only works in production environment on Ubuntu OS"
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "This endpoint only works in production environment on Ubuntu OS",
+    "status": 400
+  }
 }
 ```
 
@@ -285,7 +339,12 @@ Content-Type: text/plain
 
 ```json
 {
-  "error": "Machine with name \"ubuntu-server-01\" not found in database"
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Machine not found in database",
+    "details": "Machine with name \"ubuntu-server-01\" not found in database",
+    "status": 404
+  }
 }
 ```
 
@@ -293,7 +352,12 @@ Content-Type: text/plain
 
 ```json
 {
-  "error": "Machine \"ubuntu-server-01\" has no services configured in servicesArray"
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "No services configured for this machine",
+    "details": "Machine \"ubuntu-server-01\" has no services configured in servicesArray",
+    "status": 404
+  }
 }
 ```
 
@@ -301,31 +365,25 @@ Content-Type: text/plain
 
 ```json
 {
-  "error": "Service with name \"PersonalWeb03 API\" is not configured in this machine's servicesArray"
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Service not found",
+    "details": "Service with name \"PersonalWeb03 API\" is not configured in this machine's servicesArray",
+    "status": 404
+  }
 }
 ```
 
-**Error Response (404 Not Found - Log Directory Not Found):**
+**Error Response (404 Not Found - Log File Not Found or Permission Error):**
 
 ```json
 {
-  "error": "Log directory does not exist: /home/ubuntu/personalweb03-api/logs"
-}
-```
-
-**Error Response (404 Not Found - Log File Not Found):**
-
-```json
-{
-  "error": "Log file does not exist: /home/ubuntu/personalweb03-api/logs/PersonalWeb03 API.log"
-}
-```
-
-**Error Response (404 Not Found - Permission Error):**
-
-```json
-{
-  "error": "Permission error or failed to read log file: EACCES: permission denied"
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Log file not found or could not be read",
+    "details": "Log file error message (only in development mode)",
+    "status": 404
+  }
 }
 ```
 
@@ -333,8 +391,12 @@ Content-Type: text/plain
 
 ```json
 {
-  "error": "Failed to read log file",
-  "details": "Error details here"
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "Failed to read log file",
+    "details": "Detailed error message (only in development mode)",
+    "status": 500
+  }
 }
 ```
 

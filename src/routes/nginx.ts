@@ -63,8 +63,12 @@ router.get("/scan-nginx-dir", async (req: Request, res: Response) => {
     });
     if (!nginxHostMachine) {
       return res.status(404).json({
-        error: "Current machine not found in database",
-        currentIp: currentMachineIp,
+        error: {
+          code: "NOT_FOUND",
+          message: "Current machine not found in database",
+          details: process.env.NODE_ENV !== 'production' ? `Current IP: ${currentMachineIp}` : undefined,
+          status: 404
+        }
       });
     }
 
@@ -76,8 +80,12 @@ router.get("/scan-nginx-dir", async (req: Request, res: Response) => {
       files = await fs.promises.readdir(nginxDir);
     } catch (error) {
       return res.status(500).json({
-        error: `Failed to read nginx directory: ${nginxDir}`,
-        details: error instanceof Error ? error.message : "Unknown error",
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Failed to read nginx directory",
+          details: process.env.NODE_ENV !== 'production' ? `${nginxDir}: ${error instanceof Error ? error.message : "Unknown error"}` : undefined,
+          status: 500
+        }
       });
     }
 
@@ -181,7 +189,14 @@ router.get("/scan-nginx-dir", async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("Error scanning nginx directory:", error);
-    res.status(500).json({ error: "Failed to scan nginx directory" });
+    res.status(500).json({
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to scan nginx directory",
+        details: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.message : "Unknown error") : undefined,
+        status: 500
+      }
+    });
   }
 });
 
@@ -203,9 +218,14 @@ router.post("/create-config-file", async (req: Request, res: Response) => {
     ]);
 
     if (!isValid) {
-      return res
-        .status(400)
-        .json({ error: `Missing ${missingKeys.join(", ")}` });
+      return res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Request validation failed",
+          details: `Missing required fields: ${missingKeys.join(", ")}`,
+          status: 400
+        }
+      });
     }
 
     const {
@@ -221,9 +241,14 @@ router.post("/create-config-file", async (req: Request, res: Response) => {
       typeof templateFileName !== "string" ||
       templateFileName.trim() === ""
     ) {
-      return res
-        .status(400)
-        .json({ error: "templateFileName must be a non-empty string" });
+      return res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Request validation failed",
+          details: "templateFileName must be a non-empty string",
+          status: 400
+        }
+      });
     }
 
     // Map template type to actual filename
@@ -235,17 +260,25 @@ router.post("/create-config-file", async (req: Request, res: Response) => {
     const actualTemplateFileName = templateFileMap[templateFileName];
     if (!actualTemplateFileName) {
       return res.status(400).json({
-        error: `Invalid templateFileName. Must be one of: ${Object.keys(
-          templateFileMap
-        ).join(", ")}`,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid templateFileName",
+          details: `Must be one of: ${Object.keys(templateFileMap).join(", ")}`,
+          status: 400
+        }
       });
     }
 
     // Validate serverNamesArray (array of strings)
     if (!Array.isArray(serverNamesArray) || serverNamesArray.length === 0) {
-      return res
-        .status(400)
-        .json({ error: "serverNamesArray must be a non-empty array" });
+      return res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Request validation failed",
+          details: "serverNamesArray must be a non-empty array",
+          status: 400
+        }
+      });
     }
 
     if (
@@ -253,9 +286,14 @@ router.post("/create-config-file", async (req: Request, res: Response) => {
         (name) => typeof name === "string" && name.trim() !== ""
       )
     ) {
-      return res
-        .status(400)
-        .json({ error: "All server names must be non-empty strings" });
+      return res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Request validation failed",
+          details: "All server names must be non-empty strings",
+          status: 400
+        }
+      });
     }
 
     // Validate appHostServerMachinePublicId (non-empty string)
@@ -264,7 +302,12 @@ router.post("/create-config-file", async (req: Request, res: Response) => {
       appHostServerMachinePublicId.trim() === ""
     ) {
       return res.status(400).json({
-        error: "appHostServerMachinePublicId must be a non-empty string",
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Request validation failed",
+          details: "appHostServerMachinePublicId must be a non-empty string",
+          status: 400
+        }
       });
     }
 
@@ -273,8 +316,13 @@ router.post("/create-config-file", async (req: Request, res: Response) => {
       publicId: appHostServerMachinePublicId,
     });
     if (!machine) {
-      return res.status(400).json({
-        error: "Machine with specified appHostServerMachinePublicId not found",
+      return res.status(404).json({
+        error: {
+          code: "NOT_FOUND",
+          message: "Machine not found",
+          details: "Machine with specified appHostServerMachinePublicId not found",
+          status: 404
+        }
       });
     }
 
@@ -284,22 +332,39 @@ router.post("/create-config-file", async (req: Request, res: Response) => {
       portNumber < 1 ||
       portNumber > 65535
     ) {
-      return res
-        .status(400)
-        .json({ error: "portNumber must be a number between 1 and 65535" });
+      return res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Request validation failed",
+          details: "portNumber must be a number between 1 and 65535",
+          status: 400
+        }
+      });
     }
 
     // Validate saveDestination (must be a non-empty string path)
     if (typeof saveDestination !== "string" || saveDestination.trim() === "") {
       return res.status(400).json({
-        error: "saveDestination must be a non-empty string path",
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Request validation failed",
+          details: "saveDestination must be a non-empty string path",
+          status: 400
+        }
       });
     }
 
     // Verify template file exists
     const fileValidation = verifyTemplateFileExists(actualTemplateFileName);
     if (!fileValidation.exists) {
-      return res.status(400).json({ error: fileValidation.error });
+      return res.status(404).json({
+        error: {
+          code: "NOT_FOUND",
+          message: "Template file not found",
+          details: process.env.NODE_ENV !== 'production' ? fileValidation.error : undefined,
+          status: 404
+        }
+      });
     }
 
     // Get current machine's IP to find nginxHostServerMachineId
@@ -310,16 +375,25 @@ router.post("/create-config-file", async (req: Request, res: Response) => {
 
     if (!nginxHostMachine) {
       return res.status(404).json({
-        error: "Current machine not found in database",
-        currentIp: currentMachineIp,
+        error: {
+          code: "NOT_FOUND",
+          message: "Current machine not found in database",
+          details: process.env.NODE_ENV !== 'production' ? `Current IP: ${currentMachineIp}` : undefined,
+          status: 404
+        }
       });
     }
 
     // Machine document already validated and fetched above (line 217)
     // Use it to get the local IP address
     if (!machine.localIpAddress) {
-      return res.status(400).json({
-        error: "Machine document does not have a localIpAddress field",
+      return res.status(500).json({
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Machine configuration error",
+          details: process.env.NODE_ENV !== 'production' ? "Machine document does not have a localIpAddress field" : undefined,
+          status: 500
+        }
       });
     }
 
@@ -334,8 +408,12 @@ router.post("/create-config-file", async (req: Request, res: Response) => {
 
     if (!configResult.success) {
       return res.status(500).json({
-        error: "Failed to create nginx config file",
-        details: configResult.error,
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Failed to create nginx config file",
+          details: process.env.NODE_ENV !== 'production' ? configResult.error : undefined,
+          status: 500
+        }
       });
     }
 
@@ -368,7 +446,14 @@ router.post("/create-config-file", async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("Error creating nginx config file:", error);
-    res.status(500).json({ error: "Failed to create nginx config file" });
+    res.status(500).json({
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to create nginx config file",
+        details: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.message : "Unknown error") : undefined,
+        status: 500
+      }
+    });
   }
 });
 
@@ -383,7 +468,14 @@ router.delete("/clear", async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("Error clearing nginx files:", error);
-    res.status(500).json({ error: "Failed to clear nginx files" });
+    res.status(500).json({
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to clear nginx files",
+        details: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.message : "Unknown error") : undefined,
+        status: 500
+      }
+    });
   }
 });
 

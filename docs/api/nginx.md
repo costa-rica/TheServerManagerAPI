@@ -144,8 +144,12 @@ curl --location 'http://localhost:3000/nginx/scan-nginx-dir' \
 
 ```json
 {
-  "error": "Current machine not found in database",
-  "currentIp": "192.168.1.50"
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Current machine not found in database",
+    "details": "Current IP: 192.168.1.50 (only in development mode)",
+    "status": 404
+  }
 }
 ```
 
@@ -153,8 +157,12 @@ curl --location 'http://localhost:3000/nginx/scan-nginx-dir' \
 
 ```json
 {
-  "error": "Failed to read nginx directory: /etc/nginx/sites-available",
-  "details": "ENOENT: no such file or directory"
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "Failed to read nginx directory",
+    "details": "/etc/nginx/sites-available: ENOENT: no such file or directory (only in development mode)",
+    "status": 500
+  }
 }
 ```
 
@@ -162,7 +170,12 @@ curl --location 'http://localhost:3000/nginx/scan-nginx-dir' \
 
 ```json
 {
-  "error": "Failed to scan nginx directory"
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "Failed to scan nginx directory",
+    "details": "Detailed error message (only in development mode)",
+    "status": 500
+  }
 }
 ```
 
@@ -240,7 +253,12 @@ curl --location 'http://localhost:3000/nginx/create-config-file' \
 
 ```json
 {
-  "error": "Missing templateFileName, serverNamesArray, appHostServerMachinePublicId, portNumber, saveDestination"
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Request validation failed",
+    "details": "Missing required fields: templateFileName, serverNamesArray, appHostServerMachinePublicId, portNumber, saveDestination",
+    "status": 400
+  }
 }
 ```
 
@@ -248,7 +266,12 @@ curl --location 'http://localhost:3000/nginx/create-config-file' \
 
 ```json
 {
-  "error": "Invalid templateFileName. Must be one of: expressJs, nextJsPython"
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid templateFileName",
+    "details": "Must be one of: expressJs, nextJsPython",
+    "status": 400
+  }
 }
 ```
 
@@ -256,15 +279,25 @@ curl --location 'http://localhost:3000/nginx/create-config-file' \
 
 ```json
 {
-  "error": "serverNamesArray must be a non-empty array"
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Request validation failed",
+    "details": "serverNamesArray must be a non-empty array",
+    "status": 400
+  }
 }
 ```
 
-**Error Response (400 Bad Request - Machine Not Found):**
+**Error Response (404 Not Found - Machine Not Found):**
 
 ```json
 {
-  "error": "Machine with specified appHostServerMachinePublicId not found"
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Machine not found",
+    "details": "Machine with specified appHostServerMachinePublicId not found",
+    "status": 404
+  }
 }
 ```
 
@@ -272,7 +305,12 @@ curl --location 'http://localhost:3000/nginx/create-config-file' \
 
 ```json
 {
-  "error": "portNumber must be a number between 1 and 65535"
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Request validation failed",
+    "details": "portNumber must be a number between 1 and 65535",
+    "status": 400
+  }
 }
 ```
 
@@ -280,8 +318,12 @@ curl --location 'http://localhost:3000/nginx/create-config-file' \
 
 ```json
 {
-  "error": "Current machine not found in database",
-  "currentIp": "192.168.1.50"
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Current machine not found in database",
+    "details": "Current IP: 192.168.1.50 (only in development mode)",
+    "status": 404
+  }
 }
 ```
 
@@ -289,8 +331,12 @@ curl --location 'http://localhost:3000/nginx/create-config-file' \
 
 ```json
 {
-  "error": "Failed to create nginx config file",
-  "details": "Error details here"
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "Failed to create nginx config file",
+    "details": "Detailed error message (only in development mode)",
+    "status": 500
+  }
 }
 ```
 
@@ -298,7 +344,12 @@ curl --location 'http://localhost:3000/nginx/create-config-file' \
 
 ```json
 {
-  "error": "Failed to create nginx config file"
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "Failed to create nginx config file",
+    "details": "Detailed error message (only in development mode)",
+    "status": 500
+  }
 }
 ```
 
@@ -345,7 +396,12 @@ curl --location --request DELETE 'http://localhost:3000/nginx/clear' \
 
 ```json
 {
-  "error": "Failed to clear nginx files"
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "Failed to clear nginx files",
+    "details": "Detailed error message (only in development mode)",
+    "status": 500
+  }
 }
 ```
 

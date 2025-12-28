@@ -44,17 +44,25 @@ curl --location 'http://localhost:3000/registrar/get-all-porkbun-domains' \
 
 ```json
 {
-  "errorFrom": "The Server Manager",
-  "error": "Porkbun API credentials not configured"
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "DNS service credentials not configured",
+    "details": "Porkbun API credentials not configured (only in development mode)",
+    "status": 500
+  }
 }
 ```
 
-**Error Response (500 Internal Server Error - Porkbun Error):**
+**Error Response (500 Internal Server Error - DNS Service Error):**
 
 ```json
 {
-  "errorFrom": "porkbun",
-  "error": "Invalid API key or secret"
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "DNS service error",
+    "details": "Porkbun API error: Invalid API key or secret (only in development mode)",
+    "status": 500
+  }
 }
 ```
 
@@ -62,8 +70,12 @@ curl --location 'http://localhost:3000/registrar/get-all-porkbun-domains' \
 
 ```json
 {
-  "errorFrom": "The Server Manager",
-  "error": "Internal server error"
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "Failed to fetch domains",
+    "details": "Detailed error message (only in development mode)",
+    "status": 500
+  }
 }
 ```
 
@@ -71,7 +83,7 @@ curl --location 'http://localhost:3000/registrar/get-all-porkbun-domains' \
 
 - Calls Porkbun API endpoint: `https://api.porkbun.com/api/json/v3/domain/listAll`
 - Returns simplified array with only `domain` and `status` fields
-- Error responses include `errorFrom` field to distinguish between Porkbun and server errors
+- Error responses use standardized format with error source in `details` field (development mode only)
 
 ---
 
@@ -122,8 +134,12 @@ curl --location 'http://localhost:3000/registrar/create-subdomain' \
 
 ```json
 {
-  "errorFrom": "The Server Manager",
-  "error": "Missing domain, subdomain, publicIpAddress, type"
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Request validation failed",
+    "details": "Missing required fields: domain, subdomain, publicIpAddress, type",
+    "status": 400
+  }
 }
 ```
 
@@ -131,17 +147,25 @@ curl --location 'http://localhost:3000/registrar/create-subdomain' \
 
 ```json
 {
-  "errorFrom": "The Server Manager",
-  "error": "Porkbun API credentials not configured"
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "DNS service credentials not configured",
+    "details": "Porkbun API credentials not configured (only in development mode)",
+    "status": 500
+  }
 }
 ```
 
-**Error Response (500 Internal Server Error - Porkbun Error):**
+**Error Response (500 Internal Server Error - DNS Service Error):**
 
 ```json
 {
-  "errorFrom": "porkbun",
-  "error": "The subdomain already exists for this domain"
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "DNS service error",
+    "details": "Porkbun API error: The subdomain already exists for this domain (only in development mode)",
+    "status": 500
+  }
 }
 ```
 
@@ -149,8 +173,12 @@ curl --location 'http://localhost:3000/registrar/create-subdomain' \
 
 ```json
 {
-  "errorFrom": "The Server Manager",
-  "error": "Internal server error"
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "Failed to create subdomain",
+    "details": "Detailed error message (only in development mode)",
+    "status": 500
+  }
 }
 ```
 
@@ -210,8 +238,12 @@ curl --location 'http://localhost:3000/registrar/get-all-porkbun-subdomains/exam
 
 ```json
 {
-  "errorFrom": "The Server Manager",
-  "error": "Domain parameter is required"
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Request validation failed",
+    "details": "Domain parameter is required",
+    "status": 400
+  }
 }
 ```
 
@@ -219,17 +251,25 @@ curl --location 'http://localhost:3000/registrar/get-all-porkbun-subdomains/exam
 
 ```json
 {
-  "errorFrom": "The Server Manager",
-  "error": "Porkbun API credentials not configured"
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "DNS service credentials not configured",
+    "details": "Porkbun API credentials not configured (only in development mode)",
+    "status": 500
+  }
 }
 ```
 
-**Error Response (500 Internal Server Error - Porkbun Error):**
+**Error Response (500 Internal Server Error - DNS Service Error):**
 
 ```json
 {
-  "errorFrom": "porkbun",
-  "error": "Domain not found in your account"
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "DNS service error",
+    "details": "Porkbun API error: Domain not found in your account (only in development mode)",
+    "status": 500
+  }
 }
 ```
 
@@ -237,8 +277,12 @@ curl --location 'http://localhost:3000/registrar/get-all-porkbun-subdomains/exam
 
 ```json
 {
-  "errorFrom": "The Server Manager",
-  "error": "Internal server error"
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "Failed to fetch DNS records",
+    "details": "Detailed error message (only in development mode)",
+    "status": 500
+  }
 }
 ```
 
@@ -293,8 +337,12 @@ curl --location --request DELETE 'http://localhost:3000/registrar/porkbun-subdom
 
 ```json
 {
-  "errorFrom": "The Server Manager",
-  "error": "Missing domain, type, subdomain"
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Request validation failed",
+    "details": "Missing required fields: domain, type, subdomain",
+    "status": 400
+  }
 }
 ```
 
@@ -302,17 +350,25 @@ curl --location --request DELETE 'http://localhost:3000/registrar/porkbun-subdom
 
 ```json
 {
-  "errorFrom": "The Server Manager",
-  "error": "Porkbun API credentials not configured"
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "DNS service credentials not configured",
+    "details": "Porkbun API credentials not configured (only in development mode)",
+    "status": 500
+  }
 }
 ```
 
-**Error Response (500 Internal Server Error - Porkbun Error):**
+**Error Response (500 Internal Server Error - DNS Service Error):**
 
 ```json
 {
-  "errorFrom": "porkbun",
-  "error": "DNS record not found"
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "DNS service error",
+    "details": "Porkbun API error: DNS record not found (only in development mode)",
+    "status": 500
+  }
 }
 ```
 
@@ -320,8 +376,12 @@ curl --location --request DELETE 'http://localhost:3000/registrar/porkbun-subdom
 
 ```json
 {
-  "errorFrom": "The Server Manager",
-  "error": "Internal server error"
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "Failed to delete DNS record",
+    "details": "Detailed error message (only in development mode)",
+    "status": 500
+  }
 }
 ```
 

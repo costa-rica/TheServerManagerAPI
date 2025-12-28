@@ -14,8 +14,12 @@ router.get(
       // Validate environment variables
       if (!process.env.PORKBUN_API_KEY || !process.env.PORKBUN_SECRET_KEY) {
         return res.status(500).json({
-          errorFrom: "The Server Manager",
-          error: "Porkbun API credentials not configured",
+          error: {
+            code: "INTERNAL_ERROR",
+            message: "DNS service credentials not configured",
+            details: process.env.NODE_ENV !== 'production' ? "Porkbun API credentials not configured" : undefined,
+            status: 500
+          }
         });
       }
 
@@ -39,15 +43,23 @@ router.get(
       // Check if the request was successful
       if (data.status === "ERROR") {
         return res.status(500).json({
-          errorFrom: "porkbun",
-          error: data.message || "Unknown Porkbun error",
+          error: {
+            code: "INTERNAL_ERROR",
+            message: "DNS service error",
+            details: process.env.NODE_ENV !== 'production' ? `Porkbun API error: ${data.message || "Unknown error"}` : undefined,
+            status: 500
+          }
         });
       }
 
       if (data.status !== "SUCCESS") {
         return res.status(500).json({
-          errorFrom: "The Server Manager",
-          error: "Unexpected response from Porkbun API",
+          error: {
+            code: "INTERNAL_ERROR",
+            message: "Unexpected DNS service response",
+            details: process.env.NODE_ENV !== 'production' ? "Unexpected response from Porkbun API" : undefined,
+            status: 500
+          }
         });
       }
 
@@ -63,8 +75,12 @@ router.get(
     } catch (error) {
       console.error("Error fetching Porkbun domains:", error);
       res.status(500).json({
-        errorFrom: "The Server Manager",
-        error: "Internal server error",
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Failed to fetch domains",
+          details: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.message : "Unknown error") : undefined,
+          status: 500
+        }
       });
     }
   }
@@ -88,16 +104,24 @@ router.post(
 
       if (!isValid) {
         return res.status(400).json({
-          errorFrom: "The Server Manager",
-          error: `Missing ${missingKeys.join(", ")}`,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Request validation failed",
+            details: `Missing required fields: ${missingKeys.join(", ")}`,
+            status: 400
+          }
         });
       }
 
       // Validate environment variables
       if (!process.env.PORKBUN_API_KEY || !process.env.PORKBUN_SECRET_KEY) {
         return res.status(500).json({
-          errorFrom: "The Server Manager",
-          error: "Porkbun API credentials not configured",
+          error: {
+            code: "INTERNAL_ERROR",
+            message: "DNS service credentials not configured",
+            details: process.env.NODE_ENV !== 'production' ? "Porkbun API credentials not configured" : undefined,
+            status: 500
+          }
         });
       }
 
@@ -125,15 +149,23 @@ router.post(
       // Check if the request was successful
       if (data.status === "ERROR") {
         return res.status(500).json({
-          errorFrom: "porkbun",
-          error: data.message || "Unknown Porkbun error",
+          error: {
+            code: "INTERNAL_ERROR",
+            message: "DNS service error",
+            details: process.env.NODE_ENV !== 'production' ? `Porkbun API error: ${data.message || "Unknown error"}` : undefined,
+            status: 500
+          }
         });
       }
 
       if (data.status !== "SUCCESS") {
         return res.status(500).json({
-          errorFrom: "The Server Manager",
-          error: "Unexpected response from Porkbun API",
+          error: {
+            code: "INTERNAL_ERROR",
+            message: "Unexpected DNS service response",
+            details: process.env.NODE_ENV !== 'production' ? "Unexpected response from Porkbun API" : undefined,
+            status: 500
+          }
         });
       }
 
@@ -149,8 +181,12 @@ router.post(
     } catch (error) {
       console.error("Error creating subdomain on Porkbun:", error);
       res.status(500).json({
-        errorFrom: "The Server Manager",
-        error: "Internal server error",
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Failed to create subdomain",
+          details: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.message : "Unknown error") : undefined,
+          status: 500
+        }
       });
     }
   }
@@ -167,16 +203,24 @@ router.get(
       // Validate domain parameter
       if (!domain) {
         return res.status(400).json({
-          errorFrom: "The Server Manager",
-          error: "Domain parameter is required",
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Request validation failed",
+            details: "Domain parameter is required",
+            status: 400
+          }
         });
       }
 
       // Validate environment variables
       if (!process.env.PORKBUN_API_KEY || !process.env.PORKBUN_SECRET_KEY) {
         return res.status(500).json({
-          errorFrom: "The Server Manager",
-          error: "Porkbun API credentials not configured",
+          error: {
+            code: "INTERNAL_ERROR",
+            message: "DNS service credentials not configured",
+            details: process.env.NODE_ENV !== 'production' ? "Porkbun API credentials not configured" : undefined,
+            status: 500
+          }
         });
       }
 
@@ -200,15 +244,23 @@ router.get(
       // Check if the request was successful
       if (data.status === "ERROR") {
         return res.status(500).json({
-          errorFrom: "porkbun",
-          error: data.message || "Unknown Porkbun error",
+          error: {
+            code: "INTERNAL_ERROR",
+            message: "DNS service error",
+            details: process.env.NODE_ENV !== 'production' ? `Porkbun API error: ${data.message || "Unknown error"}` : undefined,
+            status: 500
+          }
         });
       }
 
       if (data.status !== "SUCCESS") {
         return res.status(500).json({
-          errorFrom: "The Server Manager",
-          error: "Unexpected response from Porkbun API",
+          error: {
+            code: "INTERNAL_ERROR",
+            message: "Unexpected DNS service response",
+            details: process.env.NODE_ENV !== 'production' ? "Unexpected response from Porkbun API" : undefined,
+            status: 500
+          }
         });
       }
 
@@ -225,8 +277,12 @@ router.get(
     } catch (error) {
       console.error("Error fetching DNS records from Porkbun:", error);
       res.status(500).json({
-        errorFrom: "The Server Manager",
-        error: "Internal server error",
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Failed to fetch DNS records",
+          details: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.message : "Unknown error") : undefined,
+          status: 500
+        }
       });
     }
   }
@@ -249,16 +305,24 @@ router.delete(
 
       if (!isValid) {
         return res.status(400).json({
-          errorFrom: "The Server Manager",
-          error: `Missing ${missingKeys.join(", ")}`,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Request validation failed",
+            details: `Missing required fields: ${missingKeys.join(", ")}`,
+            status: 400
+          }
         });
       }
 
       // Validate environment variables
       if (!process.env.PORKBUN_API_KEY || !process.env.PORKBUN_SECRET_KEY) {
         return res.status(500).json({
-          errorFrom: "The Server Manager",
-          error: "Porkbun API credentials not configured",
+          error: {
+            code: "INTERNAL_ERROR",
+            message: "DNS service credentials not configured",
+            details: process.env.NODE_ENV !== 'production' ? "Porkbun API credentials not configured" : undefined,
+            status: 500
+          }
         });
       }
 
@@ -282,15 +346,23 @@ router.delete(
       // Check if the request was successful
       if (data.status === "ERROR") {
         return res.status(500).json({
-          errorFrom: "porkbun",
-          error: data.message || "Unknown Porkbun error",
+          error: {
+            code: "INTERNAL_ERROR",
+            message: "DNS service error",
+            details: process.env.NODE_ENV !== 'production' ? `Porkbun API error: ${data.message || "Unknown error"}` : undefined,
+            status: 500
+          }
         });
       }
 
       if (data.status !== "SUCCESS") {
         return res.status(500).json({
-          errorFrom: "The Server Manager",
-          error: "Unexpected response from Porkbun API",
+          error: {
+            code: "INTERNAL_ERROR",
+            message: "Unexpected DNS service response",
+            details: process.env.NODE_ENV !== 'production' ? "Unexpected response from Porkbun API" : undefined,
+            status: 500
+          }
         });
       }
 
@@ -303,8 +375,12 @@ router.delete(
     } catch (error) {
       console.error("Error deleting DNS record from Porkbun:", error);
       res.status(500).json({
-        errorFrom: "The Server Manager",
-        error: "Internal server error",
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Failed to delete DNS record",
+          details: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.message : "Unknown error") : undefined,
+          status: 500
+        }
       });
     }
   }

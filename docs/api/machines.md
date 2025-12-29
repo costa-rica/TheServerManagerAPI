@@ -115,6 +115,19 @@ curl --location 'http://localhost:3000/machines/check-nick-systemctl' \
 }
 ```
 
+**Error Response (403 Forbidden - CSV File Permission Denied):**
+
+```json
+{
+  "error": {
+    "code": "CSV_FILE_PERMISSION_DENIED",
+    "message": "Permission denied accessing CSV file",
+    "details": "The file /home/nick/nick-systemctl.csv exists but cannot be accessed due to insufficient permissions (only in development mode)",
+    "status": 403
+  }
+}
+```
+
 **Error Response (500 Internal Server Error - CSV Read Error):**
 
 ```json
@@ -150,6 +163,19 @@ curl --location 'http://localhost:3000/machines/check-nick-systemctl' \
     "message": "Service file not found in systemd directory",
     "details": "Service file 'tsm-api.service' is listed in the CSV but does not exist at /etc/systemd/system/tsm-api.service",
     "status": 404
+  }
+}
+```
+
+**Error Response (403 Forbidden - Service File Permission Denied):**
+
+```json
+{
+  "error": {
+    "code": "SERVICE_FILE_PERMISSION_DENIED",
+    "message": "Permission denied accessing service file in systemd directory",
+    "details": "Service file 'tsm-api.service' is listed in the CSV and exists at /etc/systemd/system/tsm-api.service but cannot be accessed due to insufficient permissions (only in development mode)",
+    "status": 403
   }
 }
 ```
@@ -363,7 +389,7 @@ curl --location 'http://localhost:3000/machines' \
 }
 ```
 
-**Error Response (400 Bad Request - Service File Not Found):**
+**Error Response (404 Not Found - Service File Not Found):**
 
 ```json
 {
@@ -371,12 +397,25 @@ curl --location 'http://localhost:3000/machines' \
     "code": "SERVICE_FILE_NOT_FOUND",
     "message": "Service file not found",
     "details": "Service file 'personalweb03-api.service' does not exist at /etc/systemd/system/personalweb03-api.service",
-    "status": 400
+    "status": 404
   }
 }
 ```
 
-**Error Response (400 Bad Request - WorkingDirectory Not Found):**
+**Error Response (403 Forbidden - Service File Permission Denied):**
+
+```json
+{
+  "error": {
+    "code": "SERVICE_FILE_PERMISSION_DENIED",
+    "message": "Permission denied accessing service file",
+    "details": "Service file 'personalweb03-api.service' exists at /etc/systemd/system/personalweb03-api.service but cannot be accessed due to insufficient permissions (only in development mode)",
+    "status": 403
+  }
+}
+```
+
+**Error Response (404 Not Found - WorkingDirectory Not Found):**
 
 ```json
 {
@@ -384,12 +423,25 @@ curl --location 'http://localhost:3000/machines' \
     "code": "WORKING_DIRECTORY_NOT_FOUND",
     "message": "WorkingDirectory not found in service file",
     "details": "Service file 'personalweb03-api.service' is missing the WorkingDirectory property",
-    "status": 400
+    "status": 404
   }
 }
 ```
 
-**Error Response (400 Bad Request - .env File Not Found):**
+**Error Response (403 Forbidden - WorkingDirectory Permission Denied):**
+
+```json
+{
+  "error": {
+    "code": "WORKING_DIRECTORY_PERMISSION_DENIED",
+    "message": "Permission denied accessing WorkingDirectory",
+    "details": "WorkingDirectory '/home/ubuntu/personalweb03-api' specified in service file 'personalweb03-api.service' exists but cannot be accessed due to insufficient permissions (only in development mode)",
+    "status": 403
+  }
+}
+```
+
+**Error Response (404 Not Found - .env File Not Found):**
 
 ```json
 {
@@ -397,7 +449,20 @@ curl --location 'http://localhost:3000/machines' \
     "code": "ENV_FILE_NOT_FOUND",
     "message": ".env file not found",
     "details": ".env file not found in WorkingDirectory '/home/ubuntu/personalweb03-api' for service 'personalweb03-api.service'",
-    "status": 400
+    "status": 404
+  }
+}
+```
+
+**Error Response (403 Forbidden - .env File Permission Denied):**
+
+```json
+{
+  "error": {
+    "code": "ENV_FILE_PERMISSION_DENIED",
+    "message": "Permission denied reading .env file",
+    "details": ".env file exists in '/home/ubuntu/personalweb03-api' for service 'personalweb03-api.service' but cannot be read due to insufficient permissions (only in development mode)",
+    "status": 403
   }
 }
 ```

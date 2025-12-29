@@ -83,16 +83,29 @@ async function getServicesNameAndValidateServiceFile(service: any): Promise<void
 
 	console.log(`[machines.ts] Validating service file: ${filename}`);
 
-	// Check if service file exists
+	// Check if service file exists and is accessible
 	try {
 		await fs.access(serviceFilePath);
-	} catch (error) {
+	} catch (error: any) {
+		// Distinguish between file not found and permission denied
+		if (error.code === 'EACCES' || error.code === 'EPERM') {
+			throw {
+				error: {
+					code: "SERVICE_FILE_PERMISSION_DENIED",
+					message: `Permission denied accessing service file`,
+					details: process.env.NODE_ENV !== 'production' ? `Service file '${filename}' exists at ${serviceFilePath} but cannot be accessed due to insufficient permissions` : undefined,
+					status: 403
+				}
+			};
+		}
+
+		// File doesn't exist (ENOENT) or other error
 		throw {
 			error: {
 				code: "SERVICE_FILE_NOT_FOUND",
 				message: `Service file not found`,
 				details: `Service file '${filename}' does not exist at ${serviceFilePath}`,
-				status: 400
+				status: 404
 			}
 		};
 	}
@@ -129,16 +142,29 @@ async function getServicesNameAndValidateServiceFile(service: any): Promise<void
 	const workingDirectory = workingDirectoryMatch[1].trim();
 	console.log(`[machines.ts] Found WorkingDirectory for ${filename}: ${workingDirectory}`);
 
-	// Check if WorkingDirectory exists
+	// Check if WorkingDirectory exists and is accessible
 	try {
 		await fs.access(workingDirectory);
-	} catch (error) {
+	} catch (error: any) {
+		// Distinguish between directory not found and permission denied
+		if (error.code === 'EACCES' || error.code === 'EPERM') {
+			throw {
+				error: {
+					code: "WORKING_DIRECTORY_PERMISSION_DENIED",
+					message: `Permission denied accessing WorkingDirectory`,
+					details: process.env.NODE_ENV !== 'production' ? `WorkingDirectory '${workingDirectory}' specified in service file '${filename}' exists but cannot be accessed due to insufficient permissions` : undefined,
+					status: 403
+				}
+			};
+		}
+
+		// Directory doesn't exist (ENOENT) or other error
 		throw {
 			error: {
 				code: "WORKING_DIRECTORY_NOT_FOUND",
 				message: `WorkingDirectory does not exist`,
 				details: `WorkingDirectory '${workingDirectory}' specified in service file '${filename}' does not exist`,
-				status: 400
+				status: 404
 			}
 		};
 	}
@@ -162,12 +188,24 @@ async function getServicesNameAndValidateServiceFile(service: any): Promise<void
 			console.log(`[machines.ts] Successfully read .env file for ${filename}`);
 			envFileUsed = ".env";
 		} catch (error: any) {
+			// Distinguish between permission denied and other read errors
+			if (error.code === 'EACCES' || error.code === 'EPERM') {
+				throw {
+					error: {
+						code: "ENV_FILE_PERMISSION_DENIED",
+						message: `Permission denied reading .env file`,
+						details: process.env.NODE_ENV !== 'production' ? `.env file exists in '${workingDirectory}' for service '${filename}' but cannot be read due to insufficient permissions` : undefined,
+						status: 403
+					}
+				};
+			}
+
 			throw {
 				error: {
 					code: "ENV_FILE_READ_ERROR",
 					message: `Failed to read .env file`,
-					details: `Permission error or failed to read .env file in '${workingDirectory}' for service '${filename}': ${error.message}`,
-					status: 400
+					details: process.env.NODE_ENV !== 'production' ? `Failed to read .env file in '${workingDirectory}' for service '${filename}': ${error.message}` : undefined,
+					status: 500
 				}
 			};
 		}
@@ -199,13 +237,26 @@ async function getServicesNameAndValidateServiceFile(service: any): Promise<void
 		try {
 			await fs.access(envLocalFilePath);
 			console.log(`[machines.ts] Found .env.local file for ${filename}`);
-		} catch (error) {
+		} catch (error: any) {
+			// Distinguish between file not found and permission denied
+			if (error.code === 'EACCES' || error.code === 'EPERM') {
+				throw {
+					error: {
+						code: "ENV_FILE_PERMISSION_DENIED",
+						message: `Permission denied accessing .env.local file`,
+						details: process.env.NODE_ENV !== 'production' ? `.env.local file exists in '${workingDirectory}' for service '${filename}' but cannot be accessed due to insufficient permissions` : undefined,
+						status: 403
+					}
+				};
+			}
+
+			// Neither .env nor .env.local found
 			throw {
 				error: {
 					code: "ENV_FILE_NOT_FOUND",
 					message: `Environment file not found`,
 					details: `Neither .env nor .env.local file found in WorkingDirectory '${workingDirectory}' for service '${filename}'`,
-					status: 400
+					status: 404
 				}
 			};
 		}
@@ -216,12 +267,24 @@ async function getServicesNameAndValidateServiceFile(service: any): Promise<void
 			console.log(`[machines.ts] Successfully read .env.local file for ${filename}`);
 			envFileUsed = ".env.local";
 		} catch (error: any) {
+			// Distinguish between permission denied and other read errors
+			if (error.code === 'EACCES' || error.code === 'EPERM') {
+				throw {
+					error: {
+						code: "ENV_FILE_PERMISSION_DENIED",
+						message: `Permission denied reading .env.local file`,
+						details: process.env.NODE_ENV !== 'production' ? `.env.local file exists in '${workingDirectory}' for service '${filename}' but cannot be read due to insufficient permissions` : undefined,
+						status: 403
+					}
+				};
+			}
+
 			throw {
 				error: {
 					code: "ENV_FILE_READ_ERROR",
 					message: `Failed to read .env.local file`,
-					details: `Permission error or failed to read .env.local file in '${workingDirectory}' for service '${filename}': ${error.message}`,
-					status: 400
+					details: process.env.NODE_ENV !== 'production' ? `Failed to read .env.local file in '${workingDirectory}' for service '${filename}': ${error.message}` : undefined,
+					status: 500
 				}
 			};
 		}
@@ -257,10 +320,22 @@ async function getServicesNameAndValidateServiceFile(service: any): Promise<void
  * @throws Error if file doesn't exist or can't be read
  */
 async function readNickSystemctlCsv(csvPath: string): Promise<string[]> {
-	// Check if CSV file exists
+	// Check if CSV file exists and is accessible
 	try {
 		await fs.access(csvPath);
-	} catch (error) {
+	} catch (error: any) {
+		// Distinguish between file not found and permission denied
+		if (error.code === 'EACCES' || error.code === 'EPERM') {
+			throw {
+				error: {
+					code: "CSV_FILE_PERMISSION_DENIED",
+					message: "Permission denied accessing CSV file",
+					details: process.env.NODE_ENV !== 'production' ? `The file ${csvPath} exists but cannot be accessed due to insufficient permissions` : undefined,
+					status: 403
+				}
+			};
+		}
+
 		throw {
 			error: {
 				code: "CSV_FILE_NOT_FOUND",
@@ -364,7 +439,19 @@ async function checkServiceFilesExist(serviceMap: Map<string, { timerFile?: stri
 
 		try {
 			await fs.access(serviceFilePath);
-		} catch (error) {
+		} catch (error: any) {
+			// Distinguish between file not found and permission denied
+			if (error.code === 'EACCES' || error.code === 'EPERM') {
+				throw {
+					error: {
+						code: "SERVICE_FILE_PERMISSION_DENIED",
+						message: "Permission denied accessing service file in systemd directory",
+						details: process.env.NODE_ENV !== 'production' ? `Service file '${serviceFileName}' is listed in the CSV and exists at ${serviceFilePath} but cannot be accessed due to insufficient permissions` : undefined,
+						status: 403
+					}
+				};
+			}
+
 			throw {
 				error: {
 					code: "SERVICE_FILE_NOT_FOUND_IN_DIRECTORY",

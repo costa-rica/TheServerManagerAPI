@@ -19,14 +19,14 @@ router.use(authenticateToken);
 router.get("/", async (req: Request, res: Response) => {
   console.log("[services route] GET /services - Request received");
   try {
-    // Check if running in production/Ubuntu environment
+    // Check if running in production/testing/Ubuntu environment
     console.log(`[services route] NODE_ENV: ${process.env.NODE_ENV}`);
-    if (process.env.NODE_ENV !== "production") {
-      console.warn("[services route] Not in production environment, returning error");
+    if (process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "testing") {
+      console.warn("[services route] Not in production or testing environment, returning error");
       return res.status(400).json({
         error: {
           code: "VALIDATION_ERROR",
-          message: "This endpoint only works in production environment on Ubuntu OS",
+          message: "This endpoint only works in production or testing environment on Ubuntu OS",
           status: 400
         }
       });
@@ -146,12 +146,12 @@ router.post("/:serviceFilename/:toggleStatus", async (req: Request, res: Respons
     const { serviceFilename, toggleStatus } = req.params;
     console.log(`[services route] serviceFilename: ${serviceFilename}, toggleStatus: ${toggleStatus}`);
 
-    // Check if running in production/Ubuntu environment
-    if (process.env.NODE_ENV !== "production") {
+    // Check if running in production/testing/Ubuntu environment
+    if (process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "testing") {
       return res.status(400).json({
         error: {
           code: "VALIDATION_ERROR",
-          message: "This endpoint only works in production environment on Ubuntu OS",
+          message: "This endpoint only works in production or testing environment on Ubuntu OS",
           status: 400
         }
       });
@@ -279,12 +279,12 @@ router.get("/logs/:name", async (req: Request, res: Response) => {
     const { name } = req.params;
     console.log(`[services route] Log requested for service name: ${name}`);
 
-    // Check if running in production/Ubuntu environment
-    if (process.env.NODE_ENV !== "production") {
+    // Check if running in production/testing/Ubuntu environment
+    if (process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "testing") {
       return res.status(400).json({
         error: {
           code: "VALIDATION_ERROR",
-          message: "This endpoint only works in production environment on Ubuntu OS",
+          message: "This endpoint only works in production or testing environment on Ubuntu OS",
           status: 400
         }
       });

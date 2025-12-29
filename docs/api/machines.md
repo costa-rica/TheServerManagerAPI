@@ -96,10 +96,10 @@ curl --location 'http://localhost:3000/machines/check-nick-systemctl' \
 
 **Response Fields:**
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `servicesArray[].filename` | String | Service filename from CSV (always ends with `.service`) |
-| `servicesArray[].port` | Number | Port number extracted from service file (optional, only if found) |
+| Field                           | Type   | Description                                                               |
+| ------------------------------- | ------ | ------------------------------------------------------------------------- |
+| `servicesArray[].filename`      | String | Service filename from CSV (always ends with `.service`)                   |
+| `servicesArray[].port`          | Number | Port number extracted from service file (optional, only if found)         |
 | `servicesArray[].filenameTimer` | String | Associated timer filename (optional, only if `.timer` file exists in CSV) |
 
 **Error Response (404 Not Found - CSV File Missing):**
@@ -257,24 +257,24 @@ Register a new machine in the system.
 
 **Request Body Fields:**
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `urlFor404Api` | String | Yes | URL for the 404 API endpoint |
-| `nginxStoragePathOptions` | String[] | Yes | Array of nginx storage paths |
-| `servicesArray` | Object[] | No | Array of systemd service configurations |
-| `servicesArray[].filename` | String | Yes* | Systemd service filename (e.g., "app.service") |
-| `servicesArray[].pathToLogs` | String | Yes* | Path to service log directory |
-| `servicesArray[].filenameTimer` | String | No | Systemd timer filename if applicable |
-| `servicesArray[].port` | Number | No | Port number the service runs on |
+| Field                           | Type     | Required | Description                                    |
+| ------------------------------- | -------- | -------- | ---------------------------------------------- |
+| `urlFor404Api`                  | String   | Yes      | URL for the 404 API endpoint                   |
+| `nginxStoragePathOptions`       | String[] | Yes      | Array of nginx storage paths                   |
+| `servicesArray`                 | Object[] | No       | Array of systemd service configurations        |
+| `servicesArray[].filename`      | String   | Yes\*    | Systemd service filename (e.g., "app.service") |
+| `servicesArray[].pathToLogs`    | String   | Yes\*    | Path to service log directory                  |
+| `servicesArray[].filenameTimer` | String   | No       | Systemd timer filename if applicable           |
+| `servicesArray[].port`          | Number   | No       | Port number the service runs on                |
 
-*Required if `servicesArray` is provided
+\*Required if `servicesArray` is provided
 
 **Auto-Populated Fields (per service):**
 
-| Field | Source | Description |
-|-------|--------|-------------|
-| `servicesArray[].name` | NAME_APP from .env | Extracted from NAME_APP variable in .env file located in WorkingDirectory |
-| `servicesArray[].workingDirectory` | Service file | Extracted from WorkingDirectory property in /etc/systemd/system/{filename} |
+| Field                              | Source             | Description                                                                |
+| ---------------------------------- | ------------------ | -------------------------------------------------------------------------- |
+| `servicesArray[].name`             | NAME_APP from .env | Extracted from NAME_APP variable in .env file located in WorkingDirectory  |
+| `servicesArray[].workingDirectory` | Service file       | Extracted from WorkingDirectory property in /etc/systemd/system/{filename} |
 
 **Sample Request:**
 
@@ -451,21 +451,21 @@ Update an existing machine's configuration (partial update).
 
 **URL Parameters:**
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `publicId` | String | Yes | Public ID of the machine to update |
+| Parameter  | Type   | Required | Description                        |
+| ---------- | ------ | -------- | ---------------------------------- |
+| `publicId` | String | Yes      | Public ID of the machine to update |
 
 **Request Body Fields (all optional, at least one required):**
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `urlFor404Api` | String | URL for the 404 API endpoint |
-| `nginxStoragePathOptions` | String[] | Array of nginx storage paths |
-| `servicesArray` | Object[] | Array of systemd service configurations (see POST for field details) |
-| `servicesArray[].filename` | String | Systemd service filename (e.g., "app.service") |
-| `servicesArray[].pathToLogs` | String | Path to service log directory |
-| `servicesArray[].filenameTimer` | String | Systemd timer filename if applicable (optional) |
-| `servicesArray[].port` | Number | Port number the service runs on (optional) |
+| Field                           | Type     | Description                                                          |
+| ------------------------------- | -------- | -------------------------------------------------------------------- |
+| `urlFor404Api`                  | String   | URL for the 404 API endpoint                                         |
+| `nginxStoragePathOptions`       | String[] | Array of nginx storage paths                                         |
+| `servicesArray`                 | Object[] | Array of systemd service configurations (see POST for field details) |
+| `servicesArray[].filename`      | String   | Systemd service filename (e.g., "app.service")                       |
+| `servicesArray[].pathToLogs`    | String   | Path to service log directory                                        |
+| `servicesArray[].filenameTimer` | String   | Systemd timer filename if applicable (optional)                      |
+| `servicesArray[].port`          | Number   | Port number the service runs on (optional)                           |
 
 **Note:** `servicesArray[].name` and `servicesArray[].workingDirectory` are auto-populated from service file validation (same as POST)
 
@@ -481,6 +481,40 @@ curl --location --request PATCH 'http://localhost:3000/machines/a3f2b1c4-5d6e-7f
 }'
 ```
 
+**Sample Request with servicesArray:**
+
+```bash
+curl --location --request PATCH 'https://tsm-api.nn10prod-08.dashanddata.com/machines/publicID-d2489f0-publicID-6c97ea3d78e' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \
+--data-raw '{
+  "urlFor404Api": "https://tsm-api.nn10prod-08.dashanddata.com",
+  "nginxStoragePathOptions": ["/home/nick/", "/etc/nginx/sites-available"],
+  "servicesArray": [
+    {
+      "filename": "tsm-api.service",
+      "pathToLogs": "/home/nick/logs/",
+      "port": 8000
+    },
+    {
+      "filename": "newsnexus10api.service",
+      "pathToLogs": "/home/nick/logs/",
+      "port": 8001
+    },
+    {
+      "filename": "newsnexus10portal.service",
+      "pathToLogs": "/home/nick/logs/",
+      "port": 8002
+    },
+    {
+      "filename": "newsnexuspythonqueuer01.service",
+      "pathToLogs": "/home/nick/logs/",
+      "port": 8003
+    }
+  ]
+}'
+```
+
 **Success Response (200 OK):**
 
 ```json
@@ -492,7 +526,11 @@ curl --location --request PATCH 'http://localhost:3000/machines/a3f2b1c4-5d6e-7f
     "machineName": "ubuntu-server-01",
     "urlFor404Api": "http://192.168.1.100:8080",
     "localIpAddress": "192.168.1.100",
-    "nginxStoragePathOptions": ["/var/www", "/home/user/sites", "/etc/nginx/sites-available"],
+    "nginxStoragePathOptions": [
+      "/var/www",
+      "/home/user/sites",
+      "/etc/nginx/sites-available"
+    ],
     "servicesArray": [
       {
         "name": "PersonalWeb03 API",
@@ -582,9 +620,9 @@ Delete a machine from the system.
 
 **URL Parameters:**
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `publicId` | String | Yes | Public ID of the machine to delete |
+| Parameter  | Type   | Required | Description                        |
+| ---------- | ------ | -------- | ---------------------------------- |
+| `publicId` | String | Yes      | Public ID of the machine to delete |
 
 **Sample Request:**
 

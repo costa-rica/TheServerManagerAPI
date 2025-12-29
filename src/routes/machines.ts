@@ -236,7 +236,10 @@ router.post("/", authenticateToken, async (req: Request, res: Response) => {
 router.patch("/:publicId", authenticateToken, async (req: Request, res: Response) => {
   try {
     const { publicId } = req.params;
+    console.log(`[machines.ts] PATCH /machines/${publicId} - Request received`);
+
     const { urlFor404Api, nginxStoragePathOptions, servicesArray } = req.body;
+    console.log(`[machines.ts] PATCH /machines/${publicId} - Body fields: urlFor404Api=${!!urlFor404Api}, nginxStoragePathOptions=${!!nginxStoragePathOptions}, servicesArray=${!!servicesArray}`);
 
     // Validate publicId parameter
     if (!publicId || typeof publicId !== "string" || publicId.trim() === "") {
@@ -297,6 +300,8 @@ router.patch("/:publicId", authenticateToken, async (req: Request, res: Response
 
     // Validate and add servicesArray if provided
     if (servicesArray !== undefined) {
+      console.log(`[machines.ts] PATCH /machines/${publicId} - Validating servicesArray with ${servicesArray.length} services`);
+
       if (!Array.isArray(servicesArray)) {
         return res.status(400).json({
           error: {
@@ -367,14 +372,18 @@ router.patch("/:publicId", authenticateToken, async (req: Request, res: Response
         }
 
         // Validate service file and populate name and workingDirectory
+        console.log(`[machines.ts] PATCH /machines/${publicId} - Validating service file ${i}: ${service.filename}`);
         try {
           await getServicesNameAndValidateServiceFile(service);
+          console.log(`[machines.ts] PATCH /machines/${publicId} - Service ${i} validation successful: ${service.filename}`);
         } catch (error: any) {
+          console.log(`[machines.ts] PATCH /machines/${publicId} - Service ${i} validation failed:`, error);
           // Return the standardized error from the validation function
           return res.status(error.error?.status || 400).json(error);
         }
       }
 
+      console.log(`[machines.ts] PATCH /machines/${publicId} - All services validated successfully`);
       updates.servicesArray = servicesArray;
     }
 
@@ -391,12 +400,14 @@ router.patch("/:publicId", authenticateToken, async (req: Request, res: Response
     }
 
     // Update the machine
+    console.log(`[machines.ts] PATCH /machines/${publicId} - Updating database with fields: ${Object.keys(updates).join(', ')}`);
     const updatedMachine = await Machine.findOneAndUpdate(
       { publicId },
       updates,
       { new: true, runValidators: true }
     );
 
+    console.log(`[machines.ts] PATCH /machines/${publicId} - Update successful`);
     res.status(200).json({
       message: "Machine updated successfully",
       machine: {

@@ -54,6 +54,7 @@ function getMachineInfo(): { machineName: string; localIpAddress: string } {
  */
 async function getServicesNameAndValidateServiceFile(service: any): Promise<void> {
 	const { filename } = service;
+	console.log(`[machines.ts getServicesNameAndValidateServiceFile] Starting validation for: ${filename}`);
 
 	// Validate filename is not null, undefined, empty, or whitespace-only
 	if (!filename || typeof filename !== "string" || filename.trim() === "") {
@@ -86,9 +87,13 @@ async function getServicesNameAndValidateServiceFile(service: any): Promise<void
 	// Check if service file exists and is accessible
 	try {
 		await fs.access(serviceFilePath);
+		console.log(`[machines.ts getServicesNameAndValidateServiceFile] fs.access succeeded for: ${serviceFilePath}`);
 	} catch (error: any) {
+		console.log(`[machines.ts getServicesNameAndValidateServiceFile] fs.access failed for ${serviceFilePath}. Error code: ${error.code}`);
+
 		// Distinguish between file not found and permission denied
 		if (error.code === 'EACCES' || error.code === 'EPERM') {
+			console.log(`[machines.ts getServicesNameAndValidateServiceFile] Throwing 403 PERMISSION_DENIED for: ${filename}`);
 			throw {
 				error: {
 					code: "SERVICE_FILE_PERMISSION_DENIED",
@@ -100,6 +105,7 @@ async function getServicesNameAndValidateServiceFile(service: any): Promise<void
 		}
 
 		// File doesn't exist (ENOENT) or other error
+		console.log(`[machines.ts getServicesNameAndValidateServiceFile] Throwing 404 NOT_FOUND for: ${filename} (error code: ${error.code})`);
 		throw {
 			error: {
 				code: "SERVICE_FILE_NOT_FOUND",

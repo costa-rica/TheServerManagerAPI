@@ -223,21 +223,32 @@ router.post("/:serviceFilename/:toggleStatus", async (req: Request, res: Respons
 
     console.log(`[services route] Found service: ${service.name}`);
 
+    // Special handling for tsm-api.service and tsm-nextjs.service
+    // These critical services should always restart instead of start/stop to ensure proper state
+    let actualToggleAction = toggleStatus;
+    if ((serviceFilename === "tsm-api.service" || serviceFilename === "tsm-nextjs.service") &&
+        (toggleStatus === "start" || toggleStatus === "stop" || toggleStatus === "restart")) {
+      actualToggleAction = "restart";
+      if (toggleStatus !== "restart") {
+        console.log(`[services route] Overriding ${toggleStatus} to restart for ${serviceFilename}`);
+      }
+    }
+
     // Execute the toggle command
-    const toggleResult = await toggleService(toggleStatus, serviceFilename);
+    const toggleResult = await toggleService(actualToggleAction, serviceFilename);
 
     if (!toggleResult.success) {
       return res.status(500).json({
         error: {
           code: "INTERNAL_ERROR",
-          message: `Failed to ${toggleStatus} service`,
+          message: `Failed to ${actualToggleAction} service`,
           details: process.env.NODE_ENV !== 'production' ? toggleResult.error : undefined,
           status: 500
         }
       });
     }
 
-    console.log(`[services route] Successfully executed ${toggleStatus} on ${serviceFilename}`);
+    console.log(`[services route] Successfully executed ${actualToggleAction} on ${serviceFilename}`);
 
     // Get updated service status
     const statusObj = await getServiceStatus(serviceFilename);

@@ -290,6 +290,7 @@ curl --location --request POST 'http://localhost:3000/services/personalweb03-api
 
 - Accepts both `.service` and `.timer` filenames in the `serviceFilename` parameter
 - Validates that `serviceFilename` exists in machine's servicesArray (checks both `filename` and `filenameTimer` fields)
+- **Special handling for critical services:** `tsm-api.service` and `tsm-nextjs.service` always execute `restart` when `start`, `stop`, or `restart` is requested (other actions like `enable`, `disable`, `reload` work normally)
 - Executes `sudo systemctl {toggleStatus} {serviceFilename}`
 - Queries updated service status after toggle operation, including:
   - Full "Loaded:" and "Active:" lines from systemctl
@@ -332,6 +333,20 @@ POST /services/personalweb03-services.timer/start
 Stop a timer:
 ```bash
 POST /services/personalweb03-services.timer/stop
+```
+
+**Special handling for critical services (tsm-api.service and tsm-nextjs.service):**
+
+Attempting to stop tsm-api (will execute restart instead):
+```bash
+POST /services/tsm-api.service/stop
+# Automatically converted to: sudo systemctl restart tsm-api.service
+```
+
+Attempting to start tsm-nextjs (will execute restart instead):
+```bash
+POST /services/tsm-nextjs.service/start
+# Automatically converted to: sudo systemctl restart tsm-nextjs.service
 ```
 
 ---

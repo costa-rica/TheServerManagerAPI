@@ -207,8 +207,8 @@ router.post("/:serviceFilename/:toggleStatus", async (req: Request, res: Respons
       });
     }
 
-    // Find the service in the servicesArray by filename
-    const service = machine.servicesArray.find((s) => s.filename === serviceFilename);
+    // Find the service in the servicesArray by filename or filenameTimer
+    const service = machine.servicesArray.find((s) => s.filename === serviceFilename || s.filenameTimer === serviceFilename);
 
     if (!service) {
       return res.status(404).json({

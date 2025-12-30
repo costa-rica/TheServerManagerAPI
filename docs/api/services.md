@@ -143,7 +143,7 @@ Control a service by starting, stopping, restarting, or performing other systemc
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `serviceFilename` | String | Yes | Service filename (e.g., "personalweb03-api.service") |
+| `serviceFilename` | String | Yes | Service or timer filename (e.g., "personalweb03-api.service" or "personalweb03-services.timer") |
 | `toggleStatus` | String | Yes | Action to perform: start, stop, restart, reload, enable, disable |
 
 **Sample Request:**
@@ -288,7 +288,8 @@ curl --location --request POST 'http://localhost:3000/services/personalweb03-api
 
 **Behavior:**
 
-- Validates that `serviceFilename` exists in machine's servicesArray before allowing control
+- Accepts both `.service` and `.timer` filenames in the `serviceFilename` parameter
+- Validates that `serviceFilename` exists in machine's servicesArray (checks both `filename` and `filenameTimer` fields)
 - Executes `sudo systemctl {toggleStatus} {serviceFilename}`
 - Queries updated service status after toggle operation, including:
   - Full "Loaded:" and "Active:" lines from systemctl
@@ -321,6 +322,16 @@ POST /services/personalweb03-api.service/restart
 Enable a service to start on boot:
 ```bash
 POST /services/personalweb03-api.service/enable
+```
+
+Start a timer:
+```bash
+POST /services/personalweb03-services.timer/start
+```
+
+Stop a timer:
+```bash
+POST /services/personalweb03-services.timer/stop
 ```
 
 ---

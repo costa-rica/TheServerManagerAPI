@@ -41,34 +41,160 @@ export async function executeSystemctlStatus(
 }
 
 /**
- * Parse the "Active" status from systemctl status output
+ * Parse the "Loaded" line from systemctl status output
  * @param output - The stdout from systemctl status command
- * @returns The active status (e.g., "active (running)", "inactive (dead)")
+ * @returns The loaded line (e.g., "loaded (/etc/systemd/system/myapp.service; enabled; preset: enabled)")
  */
-export function parseServiceStatus(output: string): string {
+export function parseLoadedStatus(output: string): string {
+  console.log(`[services.ts] Parsing loaded status from ${output.length} chars of output`);
+
+  if (!output || output.trim().length === 0) {
+    console.warn(`[services.ts] Output is empty, cannot parse loaded status`);
+    return "unknown";
+  }
+
+  const lines = output.split("\n");
+
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+    if (trimmedLine.startsWith("Loaded:")) {
+      // Extract everything after "Loaded: "
+      const loaded = trimmedLine.replace(/^Loaded:\s*/, "");
+      console.log(`[services.ts] Found Loaded status: ${loaded}`);
+      return loaded;
+    }
+  }
+
+  console.warn(`[services.ts] No "Loaded:" line found in output`);
+  return "unknown";
+}
+
+/**
+ * Extract onStartStatus (enabled/disabled) from loaded status line
+ * @param loadedLine - The loaded line from systemctl status
+ * @returns "enabled" or "disabled" or "unknown"
+ */
+export function extractOnStartStatus(loadedLine: string): string {
+  if (!loadedLine || loadedLine === "unknown") {
+    return "unknown";
+  }
+
+  // The loaded line format is typically:
+  // "loaded (/etc/systemd/system/myapp.service; enabled; preset: enabled)"
+  // or "loaded (/etc/systemd/system/myapp.service; disabled; preset: enabled)"
+
+  // Look for "enabled" or "disabled" between semicolons
+  if (loadedLine.includes("; enabled;") || loadedLine.includes("; enabled)")) {
+    console.log(`[services.ts] Service is enabled`);
+    return "enabled";
+  } else if (loadedLine.includes("; disabled;") || loadedLine.includes("; disabled)")) {
+    console.log(`[services.ts] Service is disabled`);
+    return "disabled";
+  } else if (loadedLine.includes("; static;") || loadedLine.includes("; static)")) {
+    console.log(`[services.ts] Service is static (cannot be enabled/disabled)`);
+    return "static";
+  }
+
+  console.warn(`[services.ts] Could not determine enabled/disabled status from: ${loadedLine}`);
+  return "unknown";
+}
+
+/**
+ * Simplify the active status to just "active" or "inactive"
+ * @param activeLine - The active line from systemctl status (e.g., "active (running) since...")
+ * @returns "active" or "inactive" or "unknown"
+ */
+export function simplifyActiveStatus(activeLine: string): string {
+  if (!activeLine || activeLine === "unknown") {
+    return "unknown";
+  }
+
+  const lowerActiveLine = activeLine.toLowerCase();
+
+  if (lowerActiveLine.startsWith("active")) {
+    console.log(`[services.ts] Simplified status: active`);
+    return "active";
+  } else if (lowerActiveLine.startsWith("inactive")) {
+    console.log(`[services.ts] Simplified status: inactive`);
+    return "inactive";
+  } else if (lowerActiveLine.startsWith("failed")) {
+    console.log(`[services.ts] Simplified status: failed`);
+    return "failed";
+  } else if (lowerActiveLine.startsWith("activating")) {
+    console.log(`[services.ts] Simplified status: activating`);
+    return "activating";
+  } else if (lowerActiveLine.startsWith("deactivating")) {
+    console.log(`[services.ts] Simplified status: deactivating`);
+    return "deactivating";
+  }
+
+  console.warn(`[services.ts] Could not simplify active status from: ${activeLine}`);
+  return "unknown";
+}
+
+/**
+ * Parse the service status from systemctl status output
+ * @param output - The stdout from systemctl status command
+ * @returns Object with loaded, active, status, and onStartStatus
+ */
+export function parseServiceStatus(output: string): {
+  loaded: string;
+  active: string;
+  status: string;
+  onStartStatus: string;
+} {
   console.log(`[services.ts] Parsing service status from ${output.length} chars of output`);
 
   if (!output || output.trim().length === 0) {
     console.warn(`[services.ts] Output is empty, cannot parse status`);
-    return "unknown";
+    return {
+      loaded: "unknown",
+      active: "unknown",
+      status: "unknown",
+      onStartStatus: "unknown",
+    };
   }
 
   const lines = output.split("\n");
   console.log(`[services.ts] Output has ${lines.length} lines`);
 
+  let activeLine = "unknown";
+  let loadedLine = "unknown";
+
   for (const line of lines) {
     const trimmedLine = line.trim();
+
     if (trimmedLine.startsWith("Active:")) {
       // Extract everything after "Active: "
-      const status = trimmedLine.replace(/^Active:\s*/, "");
-      console.log(`[services.ts] Found Active status: ${status}`);
-      return status;
+      activeLine = trimmedLine.replace(/^Active:\s*/, "");
+      console.log(`[services.ts] Found Active status: ${activeLine}`);
+    }
+
+    if (trimmedLine.startsWith("Loaded:")) {
+      // Extract everything after "Loaded: "
+      loadedLine = trimmedLine.replace(/^Loaded:\s*/, "");
+      console.log(`[services.ts] Found Loaded status: ${loadedLine}`);
     }
   }
 
-  console.warn(`[services.ts] No "Active:" line found in output`);
-  console.log(`[services.ts] First 200 chars of output: ${output.substring(0, 200)}`);
-  return "unknown";
+  if (activeLine === "unknown") {
+    console.warn(`[services.ts] No "Active:" line found in output`);
+    console.log(`[services.ts] First 200 chars of output: ${output.substring(0, 200)}`);
+  }
+
+  if (loadedLine === "unknown") {
+    console.warn(`[services.ts] No "Loaded:" line found in output`);
+  }
+
+  const status = simplifyActiveStatus(activeLine);
+  const onStartStatus = extractOnStartStatus(loadedLine);
+
+  return {
+    loaded: loadedLine,
+    active: activeLine,
+    status,
+    onStartStatus,
+  };
 }
 
 /**
@@ -116,14 +242,19 @@ export function parseTimerStatus(output: string): {
 /**
  * Get the status of a service by executing systemctl status command
  * @param filename - The service filename (e.g., "myapp.service")
- * @returns The service status string
+ * @returns Object with loaded, active, status, and onStartStatus
  */
-export async function getServiceStatus(filename: string): Promise<string> {
+export async function getServiceStatus(filename: string): Promise<{
+  loaded: string;
+  active: string;
+  status: string;
+  onStartStatus: string;
+}> {
   console.log(`[services.ts] Getting service status for: ${filename}`);
   const { stdout } = await executeSystemctlStatus(filename);
-  const status = parseServiceStatus(stdout);
-  console.log(`[services.ts] Final status for ${filename}: ${status}`);
-  return status;
+  const statusObj = parseServiceStatus(stdout);
+  console.log(`[services.ts] Final status for ${filename}:`, statusObj);
+  return statusObj;
 }
 
 /**

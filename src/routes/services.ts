@@ -75,14 +75,14 @@ router.get("/", async (req: Request, res: Response) => {
         console.log(`[services route] Processing service ${index + 1}/${machine.servicesArray.length}: ${service.name} (${service.filename})`);
         try {
           // Get service status
-          const status = await getServiceStatus(service.filename);
-          console.log(`[services route] Got status for ${service.filename}: ${status}`);
+          const statusObj = await getServiceStatus(service.filename);
+          console.log(`[services route] Got status for ${service.filename}:`, statusObj);
 
           // Base service object
           const serviceStatus: any = {
             name: service.name,
             filename: service.filename,
-            status,
+            ...statusObj, // Includes loaded, active, status, onStartStatus
           };
 
           // If service has a timer, get timer status and trigger
@@ -117,7 +117,10 @@ router.get("/", async (req: Request, res: Response) => {
           return {
             name: service.name,
             filename: service.filename,
+            loaded: "unknown",
+            active: "unknown",
             status: "unknown",
+            onStartStatus: "unknown",
           };
         }
       })
@@ -235,13 +238,13 @@ router.post("/:serviceFilename/:toggleStatus", async (req: Request, res: Respons
     console.log(`[services route] Successfully executed ${toggleStatus} on ${serviceFilename}`);
 
     // Get updated service status
-    const status = await getServiceStatus(serviceFilename);
+    const statusObj = await getServiceStatus(serviceFilename);
 
     // Build response object
     const serviceStatus: any = {
       name: service.name,
       filename: service.filename,
-      status,
+      ...statusObj, // Includes loaded, active, status, onStartStatus
     };
 
     // If service has a timer, get timer status and trigger

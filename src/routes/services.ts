@@ -89,8 +89,9 @@ router.get("/", async (req: Request, res: Response) => {
           if (service.filenameTimer) {
             console.log(`[services route] Service has timer: ${service.filenameTimer}`);
             try {
-              const { timerStatus, timerTrigger } =
+              const { timerActive, timerStatus, timerTrigger } =
                 await getTimerStatusAndTrigger(service.filenameTimer);
+              serviceStatus.timerActive = timerActive;
               serviceStatus.timerStatus = timerStatus;
               serviceStatus.timerTrigger = timerTrigger;
               console.log(`[services route] Got timer status for ${service.filenameTimer}`);
@@ -100,6 +101,7 @@ router.get("/", async (req: Request, res: Response) => {
                 error
               );
               // If timer status fails, set as unknown but continue
+              serviceStatus.timerActive = "unknown";
               serviceStatus.timerStatus = "unknown";
               serviceStatus.timerTrigger = "unknown";
             }
@@ -250,11 +252,13 @@ router.post("/:serviceFilename/:toggleStatus", async (req: Request, res: Respons
     // If service has a timer, get timer status and trigger
     if (service.filenameTimer) {
       try {
-        const { timerStatus, timerTrigger } = await getTimerStatusAndTrigger(service.filenameTimer);
+        const { timerActive, timerStatus, timerTrigger } = await getTimerStatusAndTrigger(service.filenameTimer);
+        serviceStatus.timerActive = timerActive;
         serviceStatus.timerStatus = timerStatus;
         serviceStatus.timerTrigger = timerTrigger;
       } catch (error) {
         console.error(`[services route] Error getting timer status:`, error);
+        serviceStatus.timerActive = "unknown";
         serviceStatus.timerStatus = "unknown";
         serviceStatus.timerTrigger = "unknown";
       }

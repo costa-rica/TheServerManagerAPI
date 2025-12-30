@@ -39,7 +39,8 @@ curl --location 'http://localhost:3000/services' \
       "active": "inactive (dead) since Thu 2025-12-25 19:19:14 UTC; 5min ago",
       "status": "inactive",
       "onStartStatus": "disabled",
-      "timerStatus": "active (waiting) since Thu 2025-12-25 19:19:04 UTC; 4min 40s ago",
+      "timerActive": "active (waiting) since Thu 2025-12-25 19:19:04 UTC; 4min 40s ago",
+      "timerStatus": "active",
       "timerTrigger": "Thu 2025-12-25 23:00:00 UTC; 3h 36min left"
     }
   ]
@@ -57,7 +58,8 @@ curl --location 'http://localhost:3000/services' \
 | `servicesStatusArray[].active` | String | Full "Active:" line from systemctl status (e.g., "active (running) since...", "inactive (dead) since...") |
 | `servicesStatusArray[].status` | String | Simplified status: "active", "inactive", "failed", "activating", "deactivating", or "unknown" |
 | `servicesStatusArray[].onStartStatus` | String | Whether service starts on boot: "enabled", "disabled", "static", or "unknown" (parsed from loaded line) |
-| `servicesStatusArray[].timerStatus` | String | Active status of timer (optional, only if filenameTimer configured) |
+| `servicesStatusArray[].timerActive` | String | Full "Active:" line from timer's systemctl status (optional, only if filenameTimer configured) |
+| `servicesStatusArray[].timerStatus` | String | Simplified timer status: "active", "inactive", or "unknown" (optional, only if filenameTimer configured) |
 | `servicesStatusArray[].timerTrigger` | String | Next trigger time (optional, only if filenameTimer configured) |
 
 **Error Response (400 Bad Request - Not Production):**
@@ -120,7 +122,10 @@ curl --location 'http://localhost:3000/services' \
   - **Active:** Full "Active:" line with detailed status and timestamp
   - **Status:** Simplified state extracted from Active line (active/inactive/failed/etc.)
   - **onStartStatus:** Parsed from Loaded line to determine if service is enabled/disabled/static
-- If service has `filenameTimer`, also executes `sudo systemctl status {filenameTimer}`
+- If service has `filenameTimer`, also executes `sudo systemctl status {filenameTimer}` and extracts:
+  - **timerActive:** Full "Active:" line from timer with detailed status and timestamp
+  - **timerStatus:** Simplified timer state (active/inactive/etc.)
+  - **timerTrigger:** Next scheduled trigger time
 - Services with errors return all fields as `"unknown"` but don't fail entire request
 - Only works when `NODE_ENV=production` or `NODE_ENV=testing` on Ubuntu servers with systemd
 
@@ -171,7 +176,8 @@ curl --location --request POST 'http://localhost:3000/services/personalweb03-api
   "active": "inactive (dead) since Thu 2025-12-25 19:19:14 UTC; 5min ago",
   "status": "inactive",
   "onStartStatus": "disabled",
-  "timerStatus": "active (waiting) since Thu 2025-12-25 19:19:04 UTC; 4min 40s ago",
+  "timerActive": "active (waiting) since Thu 2025-12-25 19:19:04 UTC; 4min 40s ago",
+  "timerStatus": "active",
   "timerTrigger": "Thu 2025-12-25 23:00:00 UTC; 3h 36min left"
 }
 ```
@@ -186,7 +192,8 @@ curl --location --request POST 'http://localhost:3000/services/personalweb03-api
 | `active` | String | Full "Active:" line from systemctl status after toggle operation |
 | `status` | String | Simplified status: "active", "inactive", "failed", etc. |
 | `onStartStatus` | String | Whether service starts on boot: "enabled", "disabled", "static", or "unknown" |
-| `timerStatus` | String | Active status of timer (optional, only if filenameTimer configured) |
+| `timerActive` | String | Full "Active:" line from timer's systemctl status (optional, only if filenameTimer configured) |
+| `timerStatus` | String | Simplified timer status: "active", "inactive", or "unknown" (optional, only if filenameTimer configured) |
 | `timerTrigger` | String | Next trigger time (optional, only if filenameTimer configured) |
 
 **Error Response (400 Bad Request - Not Production):**
@@ -287,7 +294,10 @@ curl --location --request POST 'http://localhost:3000/services/personalweb03-api
   - Full "Loaded:" and "Active:" lines from systemctl
   - Simplified status (active/inactive/failed/etc.)
   - Boot-time behavior (enabled/disabled/static)
-- If service has `filenameTimer`, includes timer status/trigger in response
+- If service has `filenameTimer`, includes timer fields in response:
+  - **timerActive:** Full "Active:" line from timer
+  - **timerStatus:** Simplified timer state (active/inactive/etc.)
+  - **timerTrigger:** Next scheduled trigger time
 - Only works when `NODE_ENV=production` or `NODE_ENV=testing` on Ubuntu servers with systemd
 - Supported actions: start, stop, restart, reload, enable, disable
 

@@ -526,7 +526,8 @@ curl --location 'http://localhost:3000/services/git/PersonalWeb03%20API' \
     "dev",
     "dev_07",
     "feature/new-ui"
-  ]
+  ],
+  "currentBranch": "dev_07"
 }
 ```
 
@@ -535,6 +536,7 @@ curl --location 'http://localhost:3000/services/git/PersonalWeb03%20API' \
 | Field | Type | Description |
 |-------|------|-------------|
 | `gitBranchesArray` | String[] | Array of remote branch names (without "origin/" prefix) |
+| `currentBranch` | String | The currently checked out branch name |
 
 **Error Response (400 Bad Request - Not Production):**
 
@@ -578,9 +580,10 @@ curl --location 'http://localhost:3000/services/git/PersonalWeb03%20API' \
 
 - Validates that `name` exists in machine's servicesArray
 - Constructs project path as `/home/nick/applications/{name}`
-- Executes `git branch -r` in the project directory
-- Filters out HEAD pointers and removes "origin/" prefix
-- Returns array of branch names
+- Executes `git branch -r` in the project directory to get remote branches
+- Filters out HEAD pointers and removes "origin/" prefix from branch names
+- Executes `git branch --show-current` to get the currently checked out branch
+- Returns array of remote branch names and current branch name
 - Only works when `NODE_ENV=production` or `NODE_ENV=testing` on Ubuntu servers
 
 **Notes:**
@@ -779,5 +782,92 @@ curl --location --request POST 'http://localhost:3000/services/git/checkout/Pers
 - URL encode the service name if it contains spaces
 - The branch must exist (either locally or as a remote tracking branch)
 - May fail if there are uncommitted changes in the working directory
+
+---
+
+## DELETE /services/git/delete-branch/:name/:branchName
+
+Delete a local branch from a service's repository using `git branch -D` (force delete).
+
+**Authentication:** Required (JWT token)
+
+**Environment:** Production/Testing only (Ubuntu OS)
+
+**URL Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `name` | String | Yes | Service name (matches the `name` field in servicesArray) |
+| `branchName` | String | Yes | Name of the branch to delete |
+
+**Sample Request:**
+
+```bash
+curl --location --request DELETE 'http://localhost:3000/services/git/delete-branch/PersonalWeb03%20API/old-feature' \
+--header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+**Success Response (200 OK):**
+
+```json
+{
+  "success": true,
+  "branchName": "old-feature",
+  "stdout": "Deleted branch old-feature (was abc1234).",
+  "stderr": ""
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | Boolean | Whether the branch deletion succeeded |
+| `branchName` | String | The branch that was deleted |
+| `stdout` | String | Standard output from the git command |
+| `stderr` | String | Standard error from the git command |
+
+**Error Response (404 Not Found - Service Not Found):**
+
+```json
+{
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Service not found",
+    "details": "Service with name \"PersonalWeb03 API\" is not configured in this machine's servicesArray",
+    "status": 404
+  }
+}
+```
+
+**Error Response (500 Internal Server Error):**
+
+```json
+{
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "Failed to delete branch \"old-feature\"",
+    "details": "Detailed error message (only in development mode)",
+    "status": 500
+  }
+}
+```
+
+**Behavior:**
+
+- Validates that `name` exists in machine's servicesArray
+- Constructs project path as `/home/nick/applications/{name}`
+- Executes `git branch -D {branchName}` in the project directory (force delete)
+- Returns command output in response
+- Only works when `NODE_ENV=production` or `NODE_ENV=testing` on Ubuntu servers
+
+**Notes:**
+
+- The `name` parameter must match the `name` field in servicesArray
+- URL encode the service name if it contains spaces
+- Uses `-D` flag (force delete) to delete branches regardless of merge status
+- Cannot delete the currently checked out branch
+- Will fail if the branch doesn't exist locally
+- This permanently deletes the local branch (does not affect remote branches)
 
 ---

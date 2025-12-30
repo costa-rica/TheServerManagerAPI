@@ -14,6 +14,8 @@ import {
   gitFetch,
   gitPull,
   gitCheckout,
+  getCurrentBranch,
+  deleteBranch,
 } from "../modules/git";
 
 const router = express.Router();
@@ -469,21 +471,38 @@ router.get("/git/:name", async (req: Request, res: Response) => {
     console.log(`[services route] Found service: ${service.name}`);
 
     // Get remote branches
-    const result = await getRemoteBranches(name);
+    const branchesResult = await getRemoteBranches(name);
 
-    if (!result.success) {
+    if (!branchesResult.success) {
       return res.status(500).json({
         error: {
           code: "INTERNAL_ERROR",
           message: "Failed to get remote branches",
-          details: process.env.NODE_ENV !== 'production' ? result.error : undefined,
+          details: process.env.NODE_ENV !== 'production' ? branchesResult.error : undefined,
           status: 500
         }
       });
     }
 
-    console.log(`[services route] Successfully retrieved ${result.branches.length} remote branches`);
-    res.json({ gitBranchesArray: result.branches });
+    // Get current branch
+    const currentBranchResult = await getCurrentBranch(name);
+
+    if (!currentBranchResult.success) {
+      return res.status(500).json({
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Failed to get current branch",
+          details: process.env.NODE_ENV !== 'production' ? currentBranchResult.error : undefined,
+          status: 500
+        }
+      });
+    }
+
+    console.log(`[services route] Successfully retrieved ${branchesResult.branches.length} remote branches and current branch: ${currentBranchResult.currentBranch}`);
+    res.json({
+      gitBranchesArray: branchesResult.branches,
+      currentBranch: currentBranchResult.currentBranch
+    });
   } catch (error: any) {
     console.error("[services route] Unhandled error in GET /services/git/:name:", error);
     res.status(500).json({
@@ -703,6 +722,106 @@ router.post("/git/checkout/:name/:branchName", async (req: Request, res: Respons
       error: {
         code: "INTERNAL_ERROR",
         message: "Failed to checkout branch",
+        details: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.message : "Unknown error") : undefined,
+        status: 500
+      }
+    });
+  }
+});
+
+// 🔹 DELETE /services/git/delete-branch/:name/:branchName: Delete a branch
+router.delete("/git/delete-branch/:name/:branchName", async (req: Request, res: Response) => {
+  console.log("[services route] DELETE /services/git/delete-branch/:name/:branchName - Request received");
+  try {
+    const { name, branchName } = req.params;
+    console.log(`[services route] Delete branch "${branchName}" requested for service: ${name}`);
+
+    // Check if running in production/testing/Ubuntu environment
+    if (process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "testing") {
+      return res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "This endpoint only works in production or testing environment on Ubuntu OS",
+          status: 400
+        }
+      });
+    }
+
+    // Get current machine info
+    const { machineName } = getMachineInfo();
+    console.log(`[services route] Machine name from OS: ${machineName}`);
+
+    // Find the machine in the database by machineName
+    const machine = await Machine.findOne({ machineName });
+
+    if (!machine) {
+      return res.status(404).json({
+        error: {
+          code: "NOT_FOUND",
+          message: "Machine not found in database",
+          details: `Machine with name "${machineName}" not found in database`,
+          status: 404
+        }
+      });
+    }
+
+    console.log(`[services route] Machine found: ${machine.publicId}`);
+
+    // Check if machine has servicesArray
+    if (!machine.servicesArray || machine.servicesArray.length === 0) {
+      return res.status(404).json({
+        error: {
+          code: "NOT_FOUND",
+          message: "No services configured for this machine",
+          details: `Machine "${machineName}" has no services configured in servicesArray`,
+          status: 404
+        }
+      });
+    }
+
+    // Find the service in the servicesArray by name
+    const service = machine.servicesArray.find((s) => s.name === name);
+
+    if (!service) {
+      return res.status(404).json({
+        error: {
+          code: "NOT_FOUND",
+          message: "Service not found",
+          details: `Service with name "${name}" is not configured in this machine's servicesArray`,
+          status: 404
+        }
+      });
+    }
+
+    console.log(`[services route] Found service: ${service.name}`);
+
+    // Execute git branch -D
+    const result = await deleteBranch(name, branchName);
+
+    if (!result.success) {
+      return res.status(500).json({
+        error: {
+          code: "INTERNAL_ERROR",
+          message: `Failed to delete branch "${branchName}"`,
+          details: process.env.NODE_ENV !== 'production' ? result.error : undefined,
+          status: 500
+        }
+      });
+    }
+
+    console.log(`[services route] Successfully deleted branch: ${branchName}`);
+    res.json({
+      success: true,
+      branchName,
+      stdout: result.stdout,
+      stderr: result.stderr
+    });
+  } catch (error: any) {
+    console.error("[services route] Unhandled error in DELETE /services/git/delete-branch/:name/:branchName:", error);
+    res.status(500).json({
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to delete branch",
         details: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.message : "Unknown error") : undefined,
         status: 500
       }

@@ -106,3 +106,38 @@ export async function gitCheckout(
   console.log(`[git.ts] Executing git checkout ${branchName} for: ${projectName}`);
   return executeGitCommand(projectName, `checkout ${branchName}`);
 }
+
+/**
+ * Get the current branch name
+ * @param projectName - The service name
+ * @returns Promise with current branch name
+ */
+export async function getCurrentBranch(
+  projectName: string
+): Promise<{ success: boolean; currentBranch: string; error?: string }> {
+  console.log(`[git.ts] Getting current branch for: ${projectName}`);
+
+  const result = await executeGitCommand(projectName, "branch --show-current");
+
+  if (!result.success) {
+    return { success: false, currentBranch: "", error: result.error };
+  }
+
+  const currentBranch = result.stdout.trim();
+  console.log(`[git.ts] Current branch: ${currentBranch}`);
+  return { success: true, currentBranch };
+}
+
+/**
+ * Delete a branch using git branch -D
+ * @param projectName - The service name
+ * @param branchName - The branch name to delete
+ * @returns Promise with success status
+ */
+export async function deleteBranch(
+  projectName: string,
+  branchName: string
+): Promise<{ success: boolean; stdout: string; stderr: string; error?: string }> {
+  console.log(`[git.ts] Deleting branch ${branchName} for: ${projectName}`);
+  return executeGitCommand(projectName, `branch -D ${branchName}`);
+}

@@ -89,10 +89,12 @@ router.get("/", async (req: Request, res: Response) => {
           if (service.filenameTimer) {
             console.log(`[services route] Service has timer: ${service.filenameTimer}`);
             try {
-              const { timerActive, timerStatus, timerTrigger } =
+              const { timerLoaded, timerActive, timerStatus, timerOnStartStatus, timerTrigger } =
                 await getTimerStatusAndTrigger(service.filenameTimer);
+              serviceStatus.timerLoaded = timerLoaded;
               serviceStatus.timerActive = timerActive;
               serviceStatus.timerStatus = timerStatus;
+              serviceStatus.timerOnStartStatus = timerOnStartStatus;
               serviceStatus.timerTrigger = timerTrigger;
               console.log(`[services route] Got timer status for ${service.filenameTimer}`);
             } catch (error) {
@@ -101,8 +103,10 @@ router.get("/", async (req: Request, res: Response) => {
                 error
               );
               // If timer status fails, set as unknown but continue
+              serviceStatus.timerLoaded = "unknown";
               serviceStatus.timerActive = "unknown";
               serviceStatus.timerStatus = "unknown";
+              serviceStatus.timerOnStartStatus = "unknown";
               serviceStatus.timerTrigger = "unknown";
             }
           }
@@ -263,14 +267,18 @@ router.post("/:serviceFilename/:toggleStatus", async (req: Request, res: Respons
     // If service has a timer, get timer status and trigger
     if (service.filenameTimer) {
       try {
-        const { timerActive, timerStatus, timerTrigger } = await getTimerStatusAndTrigger(service.filenameTimer);
+        const { timerLoaded, timerActive, timerStatus, timerOnStartStatus, timerTrigger } = await getTimerStatusAndTrigger(service.filenameTimer);
+        serviceStatus.timerLoaded = timerLoaded;
         serviceStatus.timerActive = timerActive;
         serviceStatus.timerStatus = timerStatus;
+        serviceStatus.timerOnStartStatus = timerOnStartStatus;
         serviceStatus.timerTrigger = timerTrigger;
       } catch (error) {
         console.error(`[services route] Error getting timer status:`, error);
+        serviceStatus.timerLoaded = "unknown";
         serviceStatus.timerActive = "unknown";
         serviceStatus.timerStatus = "unknown";
+        serviceStatus.timerOnStartStatus = "unknown";
         serviceStatus.timerTrigger = "unknown";
       }
     }

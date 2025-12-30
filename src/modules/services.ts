@@ -200,26 +200,40 @@ export function parseServiceStatus(output: string): {
 /**
  * Parse the timer status and trigger from systemctl status output for a timer
  * @param output - The stdout from systemctl status command for a timer
- * @returns Object with timerActive (full active line), timerStatus (simplified), and timerTrigger
+ * @returns Object with timerLoaded, timerActive, timerStatus, timerOnStartStatus, and timerTrigger
  */
 export function parseTimerStatus(output: string): {
+  timerLoaded: string;
   timerActive: string;
   timerStatus: string;
+  timerOnStartStatus: string;
   timerTrigger: string;
 } {
   console.log(`[services.ts] Parsing timer status from ${output.length} chars of output`);
 
   if (!output || output.trim().length === 0) {
     console.warn(`[services.ts] Timer output is empty, cannot parse`);
-    return { timerActive: "unknown", timerStatus: "unknown", timerTrigger: "unknown" };
+    return {
+      timerLoaded: "unknown",
+      timerActive: "unknown",
+      timerStatus: "unknown",
+      timerOnStartStatus: "unknown",
+      timerTrigger: "unknown"
+    };
   }
 
   const lines = output.split("\n");
+  let timerLoaded = "unknown";
   let timerActive = "unknown";
   let timerTrigger = "unknown";
 
   for (const line of lines) {
     const trimmedLine = line.trim();
+
+    if (trimmedLine.startsWith("Loaded:")) {
+      timerLoaded = trimmedLine.replace(/^Loaded:\s*/, "");
+      console.log(`[services.ts] Found timer Loaded status: ${timerLoaded}`);
+    }
 
     if (trimmedLine.startsWith("Active:")) {
       timerActive = trimmedLine.replace(/^Active:\s*/, "");
@@ -232,15 +246,18 @@ export function parseTimerStatus(output: string): {
     }
   }
 
-  if (timerActive === "unknown" || timerTrigger === "unknown") {
-    console.warn(`[services.ts] Could not find Active or Trigger in timer output`);
+  if (timerLoaded === "unknown" || timerActive === "unknown" || timerTrigger === "unknown") {
+    console.warn(`[services.ts] Could not find Loaded, Active, or Trigger in timer output`);
     console.log(`[services.ts] First 200 chars of timer output: ${output.substring(0, 200)}`);
   }
 
   // Simplify the active status to just "active" or "inactive"
   const timerStatus = simplifyActiveStatus(timerActive);
 
-  return { timerActive, timerStatus, timerTrigger };
+  // Extract enabled/disabled/static status from loaded line
+  const timerOnStartStatus = extractOnStartStatus(timerLoaded);
+
+  return { timerLoaded, timerActive, timerStatus, timerOnStartStatus, timerTrigger };
 }
 
 /**
@@ -264,11 +281,11 @@ export async function getServiceStatus(filename: string): Promise<{
 /**
  * Get the timer status and trigger for a service timer
  * @param filenameTimer - The timer filename (e.g., "myapp.timer")
- * @returns Object with timerActive (full active line), timerStatus (simplified), and timerTrigger
+ * @returns Object with timerLoaded, timerActive, timerStatus, timerOnStartStatus, and timerTrigger
  */
 export async function getTimerStatusAndTrigger(
   filenameTimer: string
-): Promise<{ timerActive: string; timerStatus: string; timerTrigger: string }> {
+): Promise<{ timerLoaded: string; timerActive: string; timerStatus: string; timerOnStartStatus: string; timerTrigger: string }> {
   console.log(`[services.ts] Getting timer status for: ${filenameTimer}`);
   const { stdout } = await executeSystemctlStatus(filenameTimer);
   const result = parseTimerStatus(stdout);

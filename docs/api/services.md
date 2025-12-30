@@ -495,3 +495,289 @@ Content-Type: text/plain
 - URL encode the service name if it contains spaces (e.g., "PersonalWeb03 API" → "PersonalWeb03%20API")
 
 ---
+
+## GET /services/git/:name
+
+Get the list of remote branches for a service's git repository.
+
+**Authentication:** Required (JWT token)
+
+**Environment:** Production/Testing only (Ubuntu OS)
+
+**URL Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `name` | String | Yes | Service name (matches the `name` field in servicesArray) |
+
+**Sample Request:**
+
+```bash
+curl --location 'http://localhost:3000/services/git/PersonalWeb03%20API' \
+--header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+**Success Response (200 OK):**
+
+```json
+{
+  "gitBranchesArray": [
+    "main",
+    "dev",
+    "dev_07",
+    "feature/new-ui"
+  ]
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `gitBranchesArray` | String[] | Array of remote branch names (without "origin/" prefix) |
+
+**Error Response (400 Bad Request - Not Production):**
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "This endpoint only works in production or testing environment on Ubuntu OS",
+    "status": 400
+  }
+}
+```
+
+**Error Response (404 Not Found - Service Not Found):**
+
+```json
+{
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Service not found",
+    "details": "Service with name \"PersonalWeb03 API\" is not configured in this machine's servicesArray",
+    "status": 404
+  }
+}
+```
+
+**Error Response (500 Internal Server Error):**
+
+```json
+{
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "Failed to get remote branches",
+    "details": "Detailed error message (only in development mode)",
+    "status": 500
+  }
+}
+```
+
+**Behavior:**
+
+- Validates that `name` exists in machine's servicesArray
+- Constructs project path as `/home/nick/applications/{name}`
+- Executes `git branch -r` in the project directory
+- Filters out HEAD pointers and removes "origin/" prefix
+- Returns array of branch names
+- Only works when `NODE_ENV=production` or `NODE_ENV=testing` on Ubuntu servers
+
+**Notes:**
+
+- The `name` parameter must match the `name` field in servicesArray
+- URL encode the service name if it contains spaces
+- Returns remote branches only (not local branches)
+
+---
+
+## POST /services/git/:name/:action
+
+Execute git fetch or pull for a service's repository.
+
+**Authentication:** Required (JWT token)
+
+**Environment:** Production/Testing only (Ubuntu OS)
+
+**URL Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `name` | String | Yes | Service name (matches the `name` field in servicesArray) |
+| `action` | String | Yes | Git action to perform: `fetch` or `pull` |
+
+**Sample Request (Fetch):**
+
+```bash
+curl --location --request POST 'http://localhost:3000/services/git/PersonalWeb03%20API/fetch' \
+--header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+**Sample Request (Pull):**
+
+```bash
+curl --location --request POST 'http://localhost:3000/services/git/PersonalWeb03%20API/pull' \
+--header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+**Success Response (200 OK):**
+
+```json
+{
+  "success": true,
+  "action": "fetch",
+  "stdout": "From https://github.com/user/repo\n   abc1234..def5678  main       -> origin/main",
+  "stderr": ""
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | Boolean | Whether the git command succeeded |
+| `action` | String | The action that was executed ("fetch" or "pull") |
+| `stdout` | String | Standard output from the git command |
+| `stderr` | String | Standard error from the git command |
+
+**Error Response (400 Bad Request - Invalid Action):**
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid action",
+    "details": "Invalid action. Must be one of: fetch, pull",
+    "status": 400
+  }
+}
+```
+
+**Error Response (404 Not Found - Service Not Found):**
+
+```json
+{
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Service not found",
+    "details": "Service with name \"PersonalWeb03 API\" is not configured in this machine's servicesArray",
+    "status": 404
+  }
+}
+```
+
+**Error Response (500 Internal Server Error):**
+
+```json
+{
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "Failed to execute git fetch",
+    "details": "Detailed error message (only in development mode)",
+    "status": 500
+  }
+}
+```
+
+**Behavior:**
+
+- Validates that `name` exists in machine's servicesArray
+- Validates that `action` is either "fetch" or "pull"
+- Constructs project path as `/home/nick/applications/{name}`
+- Executes `git fetch` or `git pull` in the project directory
+- Returns command output in response
+- Only works when `NODE_ENV=production` or `NODE_ENV=testing` on Ubuntu servers
+
+**Notes:**
+
+- The `name` parameter must match the `name` field in servicesArray
+- URL encode the service name if it contains spaces
+- `fetch` updates remote tracking branches without merging
+- `pull` fetches and merges changes into the current branch
+
+---
+
+## POST /services/git/checkout/:name/:branchName
+
+Checkout a specific branch in a service's repository.
+
+**Authentication:** Required (JWT token)
+
+**Environment:** Production/Testing only (Ubuntu OS)
+
+**URL Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `name` | String | Yes | Service name (matches the `name` field in servicesArray) |
+| `branchName` | String | Yes | Name of the branch to checkout |
+
+**Sample Request:**
+
+```bash
+curl --location --request POST 'http://localhost:3000/services/git/checkout/PersonalWeb03%20API/dev_07' \
+--header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+**Success Response (200 OK):**
+
+```json
+{
+  "success": true,
+  "branchName": "dev_07",
+  "stdout": "Switched to branch 'dev_07'\nYour branch is up to date with 'origin/dev_07'.",
+  "stderr": ""
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | Boolean | Whether the checkout succeeded |
+| `branchName` | String | The branch that was checked out |
+| `stdout` | String | Standard output from the git command |
+| `stderr` | String | Standard error from the git command |
+
+**Error Response (404 Not Found - Service Not Found):**
+
+```json
+{
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Service not found",
+    "details": "Service with name \"PersonalWeb03 API\" is not configured in this machine's servicesArray",
+    "status": 404
+  }
+}
+```
+
+**Error Response (500 Internal Server Error):**
+
+```json
+{
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "Failed to checkout branch \"dev_07\"",
+    "details": "Detailed error message (only in development mode)",
+    "status": 500
+  }
+}
+```
+
+**Behavior:**
+
+- Validates that `name` exists in machine's servicesArray
+- Constructs project path as `/home/nick/applications/{name}`
+- Executes `git checkout {branchName}` in the project directory
+- Returns command output in response
+- Only works when `NODE_ENV=production` or `NODE_ENV=testing` on Ubuntu servers
+
+**Notes:**
+
+- The `name` parameter must match the `name` field in servicesArray
+- URL encode the service name if it contains spaces
+- The branch must exist (either locally or as a remote tracking branch)
+- May fail if there are uncommitted changes in the working directory
+
+---

@@ -9,6 +9,12 @@ import {
   toggleService,
   readLogFile,
 } from "../modules/services";
+import {
+  getRemoteBranches,
+  gitFetch,
+  gitPull,
+  gitCheckout,
+} from "../modules/git";
 
 const router = express.Router();
 
@@ -389,6 +395,314 @@ router.get("/logs/:name", async (req: Request, res: Response) => {
       error: {
         code: "INTERNAL_ERROR",
         message: "Failed to read log file",
+        details: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.message : "Unknown error") : undefined,
+        status: 500
+      }
+    });
+  }
+});
+
+// 🔹 GET /services/git/:name: Get remote branches for a service's git repository
+router.get("/git/:name", async (req: Request, res: Response) => {
+  console.log("[services route] GET /services/git/:name - Request received");
+  try {
+    const { name } = req.params;
+    console.log(`[services route] Git branches requested for service: ${name}`);
+
+    // Check if running in production/testing/Ubuntu environment
+    if (process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "testing") {
+      return res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "This endpoint only works in production or testing environment on Ubuntu OS",
+          status: 400
+        }
+      });
+    }
+
+    // Get current machine info
+    const { machineName } = getMachineInfo();
+    console.log(`[services route] Machine name from OS: ${machineName}`);
+
+    // Find the machine in the database by machineName
+    const machine = await Machine.findOne({ machineName });
+
+    if (!machine) {
+      return res.status(404).json({
+        error: {
+          code: "NOT_FOUND",
+          message: "Machine not found in database",
+          details: `Machine with name "${machineName}" not found in database`,
+          status: 404
+        }
+      });
+    }
+
+    console.log(`[services route] Machine found: ${machine.publicId}`);
+
+    // Check if machine has servicesArray
+    if (!machine.servicesArray || machine.servicesArray.length === 0) {
+      return res.status(404).json({
+        error: {
+          code: "NOT_FOUND",
+          message: "No services configured for this machine",
+          details: `Machine "${machineName}" has no services configured in servicesArray`,
+          status: 404
+        }
+      });
+    }
+
+    // Find the service in the servicesArray by name
+    const service = machine.servicesArray.find((s) => s.name === name);
+
+    if (!service) {
+      return res.status(404).json({
+        error: {
+          code: "NOT_FOUND",
+          message: "Service not found",
+          details: `Service with name "${name}" is not configured in this machine's servicesArray`,
+          status: 404
+        }
+      });
+    }
+
+    console.log(`[services route] Found service: ${service.name}`);
+
+    // Get remote branches
+    const result = await getRemoteBranches(name);
+
+    if (!result.success) {
+      return res.status(500).json({
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Failed to get remote branches",
+          details: process.env.NODE_ENV !== 'production' ? result.error : undefined,
+          status: 500
+        }
+      });
+    }
+
+    console.log(`[services route] Successfully retrieved ${result.branches.length} remote branches`);
+    res.json({ gitBranchesArray: result.branches });
+  } catch (error: any) {
+    console.error("[services route] Unhandled error in GET /services/git/:name:", error);
+    res.status(500).json({
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to get remote branches",
+        details: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.message : "Unknown error") : undefined,
+        status: 500
+      }
+    });
+  }
+});
+
+// 🔹 POST /services/git/:name/:action: Execute git fetch or pull
+router.post("/git/:name/:action", async (req: Request, res: Response) => {
+  console.log("[services route] POST /services/git/:name/:action - Request received");
+  try {
+    const { name, action } = req.params;
+    console.log(`[services route] Git action "${action}" requested for service: ${name}`);
+
+    // Check if running in production/testing/Ubuntu environment
+    if (process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "testing") {
+      return res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "This endpoint only works in production or testing environment on Ubuntu OS",
+          status: 400
+        }
+      });
+    }
+
+    // Validate action
+    const validActions = ["fetch", "pull"];
+    if (!validActions.includes(action)) {
+      return res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid action",
+          details: `Invalid action. Must be one of: ${validActions.join(", ")}`,
+          status: 400
+        }
+      });
+    }
+
+    // Get current machine info
+    const { machineName } = getMachineInfo();
+    console.log(`[services route] Machine name from OS: ${machineName}`);
+
+    // Find the machine in the database by machineName
+    const machine = await Machine.findOne({ machineName });
+
+    if (!machine) {
+      return res.status(404).json({
+        error: {
+          code: "NOT_FOUND",
+          message: "Machine not found in database",
+          details: `Machine with name "${machineName}" not found in database`,
+          status: 404
+        }
+      });
+    }
+
+    console.log(`[services route] Machine found: ${machine.publicId}`);
+
+    // Check if machine has servicesArray
+    if (!machine.servicesArray || machine.servicesArray.length === 0) {
+      return res.status(404).json({
+        error: {
+          code: "NOT_FOUND",
+          message: "No services configured for this machine",
+          details: `Machine "${machineName}" has no services configured in servicesArray`,
+          status: 404
+        }
+      });
+    }
+
+    // Find the service in the servicesArray by name
+    const service = machine.servicesArray.find((s) => s.name === name);
+
+    if (!service) {
+      return res.status(404).json({
+        error: {
+          code: "NOT_FOUND",
+          message: "Service not found",
+          details: `Service with name "${name}" is not configured in this machine's servicesArray`,
+          status: 404
+        }
+      });
+    }
+
+    console.log(`[services route] Found service: ${service.name}`);
+
+    // Execute git action
+    const result = action === "fetch" ? await gitFetch(name) : await gitPull(name);
+
+    if (!result.success) {
+      return res.status(500).json({
+        error: {
+          code: "INTERNAL_ERROR",
+          message: `Failed to execute git ${action}`,
+          details: process.env.NODE_ENV !== 'production' ? result.error : undefined,
+          status: 500
+        }
+      });
+    }
+
+    console.log(`[services route] Successfully executed git ${action}`);
+    res.json({
+      success: true,
+      action,
+      stdout: result.stdout,
+      stderr: result.stderr
+    });
+  } catch (error: any) {
+    console.error("[services route] Unhandled error in POST /services/git/:name/:action:", error);
+    res.status(500).json({
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to execute git action",
+        details: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.message : "Unknown error") : undefined,
+        status: 500
+      }
+    });
+  }
+});
+
+// 🔹 POST /services/git/checkout/:name/:branchName: Checkout a branch
+router.post("/git/checkout/:name/:branchName", async (req: Request, res: Response) => {
+  console.log("[services route] POST /services/git/checkout/:name/:branchName - Request received");
+  try {
+    const { name, branchName } = req.params;
+    console.log(`[services route] Git checkout "${branchName}" requested for service: ${name}`);
+
+    // Check if running in production/testing/Ubuntu environment
+    if (process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "testing") {
+      return res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "This endpoint only works in production or testing environment on Ubuntu OS",
+          status: 400
+        }
+      });
+    }
+
+    // Get current machine info
+    const { machineName } = getMachineInfo();
+    console.log(`[services route] Machine name from OS: ${machineName}`);
+
+    // Find the machine in the database by machineName
+    const machine = await Machine.findOne({ machineName });
+
+    if (!machine) {
+      return res.status(404).json({
+        error: {
+          code: "NOT_FOUND",
+          message: "Machine not found in database",
+          details: `Machine with name "${machineName}" not found in database`,
+          status: 404
+        }
+      });
+    }
+
+    console.log(`[services route] Machine found: ${machine.publicId}`);
+
+    // Check if machine has servicesArray
+    if (!machine.servicesArray || machine.servicesArray.length === 0) {
+      return res.status(404).json({
+        error: {
+          code: "NOT_FOUND",
+          message: "No services configured for this machine",
+          details: `Machine "${machineName}" has no services configured in servicesArray`,
+          status: 404
+        }
+      });
+    }
+
+    // Find the service in the servicesArray by name
+    const service = machine.servicesArray.find((s) => s.name === name);
+
+    if (!service) {
+      return res.status(404).json({
+        error: {
+          code: "NOT_FOUND",
+          message: "Service not found",
+          details: `Service with name "${name}" is not configured in this machine's servicesArray`,
+          status: 404
+        }
+      });
+    }
+
+    console.log(`[services route] Found service: ${service.name}`);
+
+    // Execute git checkout
+    const result = await gitCheckout(name, branchName);
+
+    if (!result.success) {
+      return res.status(500).json({
+        error: {
+          code: "INTERNAL_ERROR",
+          message: `Failed to checkout branch "${branchName}"`,
+          details: process.env.NODE_ENV !== 'production' ? result.error : undefined,
+          status: 500
+        }
+      });
+    }
+
+    console.log(`[services route] Successfully checked out branch: ${branchName}`);
+    res.json({
+      success: true,
+      branchName,
+      stdout: result.stdout,
+      stderr: result.stderr
+    });
+  } catch (error: any) {
+    console.error("[services route] Unhandled error in POST /services/git/checkout/:name/:branchName:", error);
+    res.status(500).json({
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to checkout branch",
         details: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.message : "Unknown error") : undefined,
         status: 500
       }

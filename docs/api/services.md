@@ -498,7 +498,7 @@ Content-Type: text/plain
 
 ## GET /services/git/:name
 
-Get the list of remote branches for a service's git repository.
+Get the list of local branches for a service's git repository.
 
 **Authentication:** Required (JWT token)
 
@@ -535,7 +535,7 @@ curl --location 'http://localhost:3000/services/git/PersonalWeb03%20API' \
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `gitBranchesArray` | String[] | Array of remote branch names (without "origin/" prefix) |
+| `gitBranchesArray` | String[] | Array of local branch names |
 | `currentBranch` | String | The currently checked out branch name |
 
 **Error Response (400 Bad Request - Not Production):**
@@ -580,17 +580,18 @@ curl --location 'http://localhost:3000/services/git/PersonalWeb03%20API' \
 
 - Validates that `name` exists in machine's servicesArray
 - Constructs project path as `/home/nick/applications/{name}`
-- Executes `git branch -r` in the project directory to get remote branches
-- Filters out HEAD pointers and removes "origin/" prefix from branch names
+- Executes `git branch` in the project directory to get local branches
+- Removes asterisk (*) from currently checked out branch in the list
 - Executes `git branch --show-current` to get the currently checked out branch
-- Returns array of remote branch names and current branch name
+- Returns array of local branch names and current branch name
 - Only works when `NODE_ENV=production` or `NODE_ENV=testing` on Ubuntu servers
 
 **Notes:**
 
 - The `name` parameter must match the `name` field in servicesArray
 - URL encode the service name if it contains spaces
-- Returns remote branches only (not local branches)
+- Returns local branches only (branches in the local repository)
+- Reflects branch deletions immediately when branches are deleted locally
 
 ---
 

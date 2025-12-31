@@ -42,30 +42,31 @@ export async function executeGitCommand(
 }
 
 /**
- * Get list of remote branches for a repository
+ * Get list of local branches for a repository
  * @param projectName - The service name
- * @returns Promise with array of remote branch names
+ * @returns Promise with array of local branch names
  */
 export async function getRemoteBranches(
   projectName: string
 ): Promise<{ success: boolean; branches: string[]; error?: string }> {
-  console.log(`[git.ts] Getting remote branches for: ${projectName}`);
+  console.log(`[git.ts] Getting local branches for: ${projectName}`);
 
-  const result = await executeGitCommand(projectName, "branch -r");
+  const result = await executeGitCommand(projectName, "branch");
 
   if (!result.success) {
     return { success: false, branches: [], error: result.error };
   }
 
   // Parse branch names from output
-  // Output looks like: "  origin/main\n  origin/dev\n"
+  // Output looks like: "  main\n* dev\n  feature-branch\n"
+  // The asterisk (*) marks the currently checked out branch
   const branches = result.stdout
     .split("\n")
     .map((line) => line.trim())
-    .filter((line) => line && !line.includes("HEAD")) // Filter out empty lines and HEAD pointer
-    .map((line) => line.replace(/^origin\//, "")); // Remove "origin/" prefix
+    .filter((line) => line) // Filter out empty lines
+    .map((line) => line.replace(/^\*\s*/, "")); // Remove asterisk from current branch
 
-  console.log(`[git.ts] Found ${branches.length} remote branches`);
+  console.log(`[git.ts] Found ${branches.length} local branches`);
   return { success: true, branches };
 }
 

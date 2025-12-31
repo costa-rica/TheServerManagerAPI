@@ -1021,3 +1021,201 @@ curl --location --request POST 'http://localhost:3000/services/npm/PersonalWeb03
 - Large build outputs are supported (up to 10MB)
 
 ---
+
+## POST /services/make-service-file
+
+Generate systemd service and timer files from templates with variable substitution.
+
+**Authentication:** Required (JWT token)
+
+**Request Body:**
+
+| Field                     | Type   | Required | Description                                                                                        |
+| ------------------------- | ------ | -------- | -------------------------------------------------------------------------------------------------- |
+| `filenameServiceTemplate` | String | Yes      | Service template filename: expressjs.service, flask.service, fastapi.service, nextjs.service, nodejsscript.service, or pythonscript.service |
+| `filenameTimerTemplate`   | String | No       | Timer template filename: nodejsscript.timer or pythonscript.timer                                  |
+| `variables`               | Object | Yes      | Object containing template variables                                                               |
+| `variables.project_name`  | String | Yes      | Project name (used as-is for PROJECT_NAME placeholder, auto-converted to lowercase for filenames) |
+| `variables.python_env_name` | String | No     | Python virtual environment name (required for Python templates)                                    |
+| `variables.port`          | Number | No       | Port number the application will run on (required for most templates)                              |
+
+**Sample Request (Express.js service only):**
+
+```bash
+curl --location --request POST 'http://localhost:3000/services/make-service-file' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \
+--data-raw '{
+  "filenameServiceTemplate": "expressjs.service",
+  "variables": {
+    "project_name": "MyProject-API",
+    "port": 3000
+  }
+}'
+```
+
+**Sample Request (Python service with timer):**
+
+```bash
+curl --location --request POST 'http://localhost:3000/services/make-service-file' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \
+--data-raw '{
+  "filenameServiceTemplate": "pythonscript.service",
+  "filenameTimerTemplate": "pythonscript.timer",
+  "variables": {
+    "project_name": "DataProcessor",
+    "python_env_name": "dataprocessor_env",
+    "port": 5000
+  }
+}'
+```
+
+**Success Response (201 Created - Service Only):**
+
+```json
+{
+  "message": "Service file(s) created successfully",
+  "service": {
+    "template": "expressjs.service",
+    "outputPath": "/path/to/service/files/myproject-api.service",
+    "filename": "myproject-api.service",
+    "content": "[Unit]\nDescription=MyProject-API ExpressJS API Application\nAfter=network.target\n..."
+  },
+  "variablesApplied": {
+    "project_name": "MyProject-API",
+    "project_name_lowercase": "myproject-api",
+    "port": 3000
+  }
+}
+```
+
+**Success Response (201 Created - Service with Timer):**
+
+```json
+{
+  "message": "Service file(s) created successfully",
+  "service": {
+    "template": "pythonscript.service",
+    "outputPath": "/path/to/service/files/dataprocessor.service",
+    "filename": "dataprocessor.service",
+    "content": "[Unit]\nDescription=DataProcessor Python Script\n..."
+  },
+  "timer": {
+    "template": "pythonscript.timer",
+    "outputPath": "/path/to/service/files/dataprocessor.timer",
+    "filename": "dataprocessor.timer",
+    "content": "[Unit]\nDescription=DataProcessor Python Script Timer\nRequires=dataprocessor.service\n..."
+  },
+  "variablesApplied": {
+    "project_name": "DataProcessor",
+    "project_name_lowercase": "dataprocessor",
+    "python_env_name": "dataprocessor_env",
+    "port": 5000
+  }
+}
+```
+
+**Response Fields:**
+
+| Field                       | Type   | Description                                                                  |
+| --------------------------- | ------ | ---------------------------------------------------------------------------- |
+| `message`                   | String | Success message                                                              |
+| `service`                   | Object | Service file information                                                     |
+| `service.template`          | String | Template filename that was used                                              |
+| `service.outputPath`        | String | Full path where the service file was written                                 |
+| `service.filename`          | String | Generated service filename (project_name_lowercase.service)                  |
+| `service.content`           | String | Complete content of the generated service file                               |
+| `timer`                     | Object | Timer file information (optional, only if filenameTimerTemplate was provided)|
+| `timer.template`            | String | Timer template filename that was used                                        |
+| `timer.outputPath`          | String | Full path where the timer file was written                                   |
+| `timer.filename`            | String | Generated timer filename (project_name_lowercase.timer)                      |
+| `timer.content`             | String | Complete content of the generated timer file                                 |
+| `variablesApplied`          | Object | All variables that were applied to the templates                             |
+| `variablesApplied.project_name` | String | Original project name as provided                                        |
+| `variablesApplied.project_name_lowercase` | String | Auto-generated lowercase version used for filenames            |
+| `variablesApplied.python_env_name` | String | Python environment name (if provided)                                 |
+| `variablesApplied.port`     | Number | Port number (if provided)                                                    |
+
+**Error Response (400 Bad Request - Missing Required Field):**
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Request validation failed",
+    "details": "Missing required field: filenameServiceTemplate",
+    "status": 400
+  }
+}
+```
+
+**Error Response (400 Bad Request - Invalid Template):**
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid service template",
+    "details": "filenameServiceTemplate must be one of: expressjs.service, flask.service, nodejsscript.service, pythonscript.service, fastapi.service, nextjs.service",
+    "status": 400
+  }
+}
+```
+
+**Error Response (500 Internal Server Error - Missing PATH_TO_SERVICE_FILES):**
+
+```json
+{
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "Server configuration error",
+    "details": "PATH_TO_SERVICE_FILES environment variable is not set",
+    "status": 500
+  }
+}
+```
+
+**Behavior:**
+
+- Validates `filenameServiceTemplate` against list of valid service templates
+- Validates `filenameTimerTemplate` (if provided) against list of valid timer templates
+- Requires `variables.project_name` field
+- Auto-generates `project_name_lowercase` by converting `project_name` to lowercase
+- Reads template files from `src/templates/systemdServiceFiles/`
+- Replaces template placeholders:
+  - `{{PROJECT_NAME}}` → `variables.project_name`
+  - `{{PROJECT_NAME_LOWERCASE}}` → Auto-generated lowercase version
+  - `{{PYTHON_ENV_NAME}}` → `variables.python_env_name`
+  - `{{PORT}}` → `variables.port`
+- Writes files to directory specified in `PATH_TO_SERVICE_FILES` environment variable
+- Overwrites existing files with the same name without warning
+- Returns both file paths and complete file contents in response
+
+**Template Requirements:**
+
+**Express.js / Next.js / Node.js Script:**
+- Required variables: `project_name`, `port`
+- Generated paths: `/home/nick/applications/{{PROJECT_NAME}}`
+
+**FastAPI / Flask / Python Script:**
+- Required variables: `project_name`, `python_env_name`, `port`
+- Generated paths: `/home/nick/applications/{{PROJECT_NAME}}`, `/home/nick/environments/{{PYTHON_ENV_NAME}}`
+
+**Timers (nodejsscript.timer / pythonscript.timer):**
+- Required variables: `project_name`
+- Auto-generates: `project_name_lowercase` for `Requires={{PROJECT_NAME_LOWERCASE}}.service` directive
+
+**Notes:**
+
+- Generated filenames are always lowercase: `{project_name_lowercase}.service` and `{project_name_lowercase}.timer`
+- Example: `project_name: "MyProject-API"` generates `myproject-api.service`
+- Existing files are overwritten without confirmation
+- The `timer` field in response is only included if `filenameTimerTemplate` was provided
+- Port variable is not required for timer templates
+- Python templates require `python_env_name` to specify the virtual environment path
+- Template files use `{{PLACEHOLDER}}` syntax (double curly braces)
+- All generated files follow systemd unit file format
+- Files must be manually moved/linked to `/etc/systemd/system/` and enabled with `systemctl`
+
+---

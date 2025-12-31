@@ -9,6 +9,7 @@ import {
   buildServicesArrayFromNickSystemctl,
 } from "../modules/machines";
 import { authenticateToken } from "../modules/authentication";
+import logger from "../config/logger";
 
 const router = express.Router();
 
@@ -18,7 +19,7 @@ router.get("/name", authenticateToken, (req: Request, res: Response) => {
     const machineInfo = getMachineInfo();
     res.json(machineInfo);
   } catch (error: any) {
-    console.error("Error getting machine info:", error);
+    logger.error("Error getting machine info:", error);
     res.status(500).json({
       error: {
         code: "INTERNAL_ERROR",
@@ -37,13 +38,13 @@ router.get(
   authenticateToken,
   async (req: Request, res: Response) => {
     try {
-      console.log(
+      logger.info(
         "[machines.ts] GET /machines/check-nick-systemctl - Building services array from nick-systemctl.csv"
       );
 
       const servicesArray = await buildServicesArrayFromNickSystemctl();
 
-      console.log(
+      logger.info(
         `[machines.ts] Successfully built services array with ${servicesArray.length} service(s)`
       );
 
@@ -52,7 +53,7 @@ router.get(
         servicesArray,
       });
     } catch (error: any) {
-      console.error(
+      logger.error(
         "[machines.ts] Error in /machines/check-nick-systemctl:",
         error
       );
@@ -78,10 +79,10 @@ router.get(
 
 // 🔹 GET /machines: Get all machines
 router.get("/", authenticateToken, async (req, res) => {
-  console.log("in GET /machines");
+  logger.info("in GET /machines");
 
   const existingMachines = await Machine.find();
-  // console.log(existingMachines);
+  // logger.info(existingMachines);
 
   // Update each machine's properties if necessary
   const updatedMachines = existingMachines.map((machine) => {
@@ -240,7 +241,7 @@ router.post("/", authenticateToken, async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
-    console.error("Error creating machine:", error);
+    logger.error("Error creating machine:", error);
     res.status(500).json({
       error: {
         code: "INTERNAL_ERROR",
@@ -260,13 +261,13 @@ router.patch(
   async (req: Request, res: Response) => {
     try {
       const { publicId } = req.params;
-      console.log(
+      logger.info(
         `[machines.ts] PATCH /machines/${publicId} - Request received`
       );
 
       const { urlApiForTsmNetwork, nginxStoragePathOptions, servicesArray } =
         req.body;
-      console.log(
+      logger.info(
         `[machines.ts] PATCH /machines/${publicId} - Body fields: urlApiForTsmNetwork=${!!urlApiForTsmNetwork}, nginxStoragePathOptions=${!!nginxStoragePathOptions}, servicesArray=${!!servicesArray}`
       );
 
@@ -332,7 +333,7 @@ router.patch(
 
       // Validate and add servicesArray if provided
       if (servicesArray !== undefined) {
-        console.log(
+        logger.info(
           `[machines.ts] PATCH /machines/${publicId} - Validating servicesArray with ${servicesArray.length} services`
         );
 
@@ -408,16 +409,16 @@ router.patch(
           }
 
           // Validate service file and populate name and workingDirectory
-          console.log(
+          logger.info(
             `[machines.ts] PATCH /machines/${publicId} - Validating service file ${i}: ${service.filename}`
           );
           try {
             await getServicesNameAndValidateServiceFile(service);
-            console.log(
+            logger.info(
               `[machines.ts] PATCH /machines/${publicId} - Service ${i} validation successful: ${service.filename}`
             );
           } catch (error: any) {
-            console.log(
+            logger.info(
               `[machines.ts] PATCH /machines/${publicId} - Service ${i} validation failed:`,
               error
             );
@@ -426,7 +427,7 @@ router.patch(
           }
         }
 
-        console.log(
+        logger.info(
           `[machines.ts] PATCH /machines/${publicId} - All services validated successfully`
         );
         updates.servicesArray = servicesArray;
@@ -446,7 +447,7 @@ router.patch(
       }
 
       // Update the machine
-      console.log(
+      logger.info(
         `[machines.ts] PATCH /machines/${publicId} - Updating database with fields: ${Object.keys(
           updates
         ).join(", ")}`
@@ -457,7 +458,7 @@ router.patch(
         { new: true, runValidators: true }
       );
 
-      console.log(
+      logger.info(
         `[machines.ts] PATCH /machines/${publicId} - Update successful`
       );
       res.status(200).json({
@@ -475,7 +476,7 @@ router.patch(
         },
       });
     } catch (error: any) {
-      console.error("Error updating machine:", error);
+      logger.error("Error updating machine:", error);
       res.status(500).json({
         error: {
           code: "INTERNAL_ERROR",
@@ -525,7 +526,7 @@ router.delete("/:publicId", authenticateToken, async (req, res) => {
       },
     });
   } catch (error: any) {
-    console.error("Error deleting machine:", error);
+    logger.error("Error deleting machine:", error);
     res.status(500).json({
       error: {
         code: "INTERNAL_ERROR",

@@ -1,7 +1,11 @@
 import fs from "fs/promises";
 import path from "path";
+import logger from "../config/logger";
 
-const TEMPLATES_PATH = path.resolve(__dirname, "../templates/systemdServiceFiles");
+const TEMPLATES_PATH = path.resolve(
+  __dirname,
+  "../templates/systemdServiceFiles"
+);
 
 /**
  * Valid service template filenames
@@ -86,14 +90,14 @@ export async function readTemplateFile(
   templateFilename: string
 ): Promise<string> {
   const templatePath = path.join(TEMPLATES_PATH, templateFilename);
-  console.log(`[systemd.ts] Reading template file: ${templatePath}`);
+  logger.info(`[systemd.ts] Reading template file: ${templatePath}`);
 
   try {
     const content = await fs.readFile(templatePath, "utf-8");
-    console.log(`[systemd.ts] Successfully read template: ${templateFilename}`);
+    logger.info(`[systemd.ts] Successfully read template: ${templateFilename}`);
     return content;
   } catch (error: any) {
-    console.error(`[systemd.ts] Error reading template file: ${error.message}`);
+    logger.error(`[systemd.ts] Error reading template file: ${error.message}`);
     throw new Error(`Failed to read template file: ${templateFilename}`);
   }
 }
@@ -108,13 +112,13 @@ export async function writeServiceFile(
   outputPath: string,
   content: string
 ): Promise<void> {
-  console.log(`[systemd.ts] Writing service file to: ${outputPath}`);
+  logger.info(`[systemd.ts] Writing service file to: ${outputPath}`);
 
   try {
     await fs.writeFile(outputPath, content, "utf-8");
-    console.log(`[systemd.ts] Successfully wrote file: ${outputPath}`);
+    logger.info(`[systemd.ts] Successfully wrote file: ${outputPath}`);
   } catch (error: any) {
-    console.error(`[systemd.ts] Error writing service file: ${error.message}`);
+    logger.error(`[systemd.ts] Error writing service file: ${error.message}`);
     throw new Error(`Failed to write service file to: ${outputPath}`);
   }
 }
@@ -133,7 +137,7 @@ export async function generateServiceFile(
   outputDirectory: string,
   outputFilename: string
 ): Promise<{ outputPath: string; content: string }> {
-  console.log(
+  logger.info(
     `[systemd.ts] Generating service file from template: ${templateFilename}`
   );
 
@@ -152,7 +156,7 @@ export async function generateServiceFile(
   // Write the file
   await writeServiceFile(outputPath, processedContent);
 
-  console.log(`[systemd.ts] Successfully generated: ${outputPath}`);
+  logger.info(`[systemd.ts] Successfully generated: ${outputPath}`);
 
   return {
     outputPath,

@@ -34,79 +34,64 @@ const maxFiles = parseInt(process.env.LOG_MAX_FILES || "10");
 // Determine log level based on environment
 let logLevel: string;
 if (isProduction) {
-	logLevel = "error"; // Only errors in production
+  logLevel = "error"; // Only errors in production
 } else if (isTesting) {
-	logLevel = "info"; // Info and above in testing
+  logLevel = "info"; // Info and above in testing
 } else {
-	logLevel = "debug"; // All levels in development
+  logLevel = "debug"; // All levels in development
 }
 
 // Define log format for production (human-readable with timestamps)
 const productionFormat = winston.format.combine(
-	winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss.SSS" }),
-	winston.format.errors({ stack: true }),
-	winston.format.printf(({ timestamp, level, message, ...meta }) => {
-		const metaStr = Object.keys(meta).length ? " " + JSON.stringify(meta) : "";
-		return `[${timestamp}] [${level.toUpperCase()}] [${appName}] ${message}${metaStr}`;
-	})
+  winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss.SSS" }),
+  winston.format.errors({ stack: true }),
+  winston.format.printf(({ timestamp, level, message, ...meta }) => {
+    const metaStr = Object.keys(meta).length ? " " + JSON.stringify(meta) : "";
+    return `[${timestamp}] [${level.toUpperCase()}] [${appName}] ${message}${metaStr}`;
+  })
 );
 
 // Define log format for development (colorized, simpler)
 const developmentFormat = winston.format.combine(
-	winston.format.colorize(),
-	winston.format.timestamp({ format: "HH:mm:ss" }),
-	winston.format.printf(({ timestamp, level, message, ...meta }) => {
-		const metaStr = Object.keys(meta).length ? " " + JSON.stringify(meta) : "";
-		return `${timestamp} ${level} [${appName}] ${message}${metaStr}`;
-	})
+  winston.format.colorize(),
+  winston.format.timestamp({ format: "HH:mm:ss" }),
+  winston.format.printf(({ timestamp, level, message, ...meta }) => {
+    const metaStr = Object.keys(meta).length ? " " + JSON.stringify(meta) : "";
+    return `${timestamp} ${level} [${appName}] ${message}${metaStr}`;
+  })
 );
 
 // Create the Winston logger
 const logger = winston.createLogger({
-	level: logLevel,
-	format: isProduction || isTesting ? productionFormat : developmentFormat,
-	transports: [],
+  level: logLevel,
+  format: isProduction || isTesting ? productionFormat : developmentFormat,
+  transports: [],
 });
 
 // Add transports based on environment
 if (isProduction || isTesting) {
-	// Production and Testing: Write to rotating log files
-	logger.add(
-		new winston.transports.File({
-			filename: path.join(logDir, `${appName}.log`),
-			maxsize: maxSize,
-			maxFiles: maxFiles,
-			tailable: true,
-		})
-	);
+  // Production and Testing: Write to rotating log files
+  logger.add(
+    new winston.transports.File({
+      filename: path.join(logDir, `${appName}.log`),
+      maxsize: maxSize,
+      maxFiles: maxFiles,
+      tailable: true,
+    })
+  );
 } else {
-	// Development: Console output with colors
-	logger.add(new winston.transports.Console());
+  // Development: Console output with colors
+  logger.add(new winston.transports.Console());
 }
-
-// Monkey-patch console methods to use Winston
-const originalConsole = {
-	log: console.log,
-	error: console.error,
-	warn: console.warn,
-	info: console.info,
-	debug: console.debug,
-};
-
-console.log = (...args: any[]) => logger.info(args.join(" "));
-console.error = (...args: any[]) => logger.error(args.join(" "));
-console.warn = (...args: any[]) => logger.warn(args.join(" "));
-console.info = (...args: any[]) => logger.info(args.join(" "));
-console.debug = (...args: any[]) => logger.debug(args.join(" "));
 
 // Log initialization
 let environmentMode: string;
 if (isProduction) {
-	environmentMode = "production (error-only logging)";
+  environmentMode = "production (error-only logging)";
 } else if (isTesting) {
-	environmentMode = "testing (file-based logging)";
+  environmentMode = "testing (file-based logging)";
 } else {
-	environmentMode = "development (console logging)";
+  environmentMode = "development (console logging)";
 }
 logger.info(`Logger V03 initialized for ${appName} in ${environmentMode}`);
 

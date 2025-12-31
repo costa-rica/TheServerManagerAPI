@@ -1,6 +1,7 @@
 import { exec } from "child_process";
 import { promisify } from "util";
 import path from "path";
+import logger from "../config/logger";
 
 const execAsync = promisify(exec);
 
@@ -24,19 +25,19 @@ export async function executeGitCommand(
   const projectPath = path.join(BASE_APPLICATIONS_PATH, projectName);
   const command = `cd "${projectPath}" && git ${gitCommand}`;
 
-  console.log(`[git.ts] Executing git command: ${command}`);
+  logger.info(`[git.ts] Executing git command: ${command}`);
 
   try {
     const { stdout, stderr } = await execAsync(command);
-    console.log(`[git.ts] Git command succeeded for ${projectName}`);
-    console.log(`[git.ts] stdout length: ${stdout.length} chars`);
+    logger.info(`[git.ts] Git command succeeded for ${projectName}`);
+    logger.info(`[git.ts] stdout length: ${stdout.length} chars`);
     if (stderr) {
-      console.warn(`[git.ts] stderr: ${stderr}`);
+      logger.warn(`[git.ts] stderr: ${stderr}`);
     }
     return { success: true, stdout, stderr };
   } catch (error: any) {
-    console.error(`[git.ts] Git command failed for ${projectName}`);
-    console.error(`[git.ts] Error: ${error.message}`);
+    logger.error(`[git.ts] Git command failed for ${projectName}`);
+    logger.error(`[git.ts] Error: ${error.message}`);
     return {
       success: false,
       stdout: error.stdout || "",
@@ -54,7 +55,7 @@ export async function executeGitCommand(
 export async function getLocalBranches(
   projectName: string
 ): Promise<{ success: boolean; branches: string[]; error?: string }> {
-  console.log(`[git.ts] Getting local branches for: ${projectName}`);
+  logger.info(`[git.ts] Getting local branches for: ${projectName}`);
 
   const result = await executeGitCommand(projectName, "branch");
 
@@ -71,7 +72,7 @@ export async function getLocalBranches(
     .filter((line) => line) // Filter out empty lines
     .map((line) => line.replace(/^\*\s*/, "")); // Remove asterisk from current branch
 
-  console.log(`[git.ts] Found ${branches.length} local branches`);
+  logger.info(`[git.ts] Found ${branches.length} local branches`);
   return { success: true, branches };
 }
 
@@ -83,7 +84,7 @@ export async function getLocalBranches(
 export async function getRemoteBranches(
   projectName: string
 ): Promise<{ success: boolean; branches: string[]; error?: string }> {
-  console.log(`[git.ts] Getting remote branches for: ${projectName}`);
+  logger.info(`[git.ts] Getting remote branches for: ${projectName}`);
 
   const result = await executeGitCommand(projectName, "branch -r");
 
@@ -99,7 +100,7 @@ export async function getRemoteBranches(
     .filter((line) => line && !line.includes("->")) // Filter empty lines and HEAD pointer
     .map((line) => line.replace(/^origin\//, "")); // Remove "origin/" prefix for cleaner display
 
-  console.log(`[git.ts] Found ${branches.length} remote branches`);
+  logger.info(`[git.ts] Found ${branches.length} remote branches`);
   return { success: true, branches };
 }
 
@@ -116,7 +117,7 @@ export async function gitFetch(
   stderr: string;
   error?: string;
 }> {
-  console.log(`[git.ts] Executing git fetch for: ${projectName}`);
+  logger.info(`[git.ts] Executing git fetch for: ${projectName}`);
   return executeGitCommand(projectName, "fetch");
 }
 
@@ -133,7 +134,7 @@ export async function gitPull(
   stderr: string;
   error?: string;
 }> {
-  console.log(`[git.ts] Executing git pull for: ${projectName}`);
+  logger.info(`[git.ts] Executing git pull for: ${projectName}`);
   return executeGitCommand(projectName, "pull");
 }
 
@@ -152,7 +153,7 @@ export async function gitCheckout(
   stderr: string;
   error?: string;
 }> {
-  console.log(
+  logger.info(
     `[git.ts] Executing git checkout ${branchName} for: ${projectName}`
   );
   return executeGitCommand(projectName, `checkout ${branchName}`);
@@ -166,7 +167,7 @@ export async function gitCheckout(
 export async function getCurrentBranch(
   projectName: string
 ): Promise<{ success: boolean; currentBranch: string; error?: string }> {
-  console.log(`[git.ts] Getting current branch for: ${projectName}`);
+  logger.info(`[git.ts] Getting current branch for: ${projectName}`);
 
   const result = await executeGitCommand(projectName, "branch --show-current");
 
@@ -175,7 +176,7 @@ export async function getCurrentBranch(
   }
 
   const currentBranch = result.stdout.trim();
-  console.log(`[git.ts] Current branch: ${currentBranch}`);
+  logger.info(`[git.ts] Current branch: ${currentBranch}`);
   return { success: true, currentBranch };
 }
 
@@ -194,6 +195,6 @@ export async function deleteBranch(
   stderr: string;
   error?: string;
 }> {
-  console.log(`[git.ts] Deleting branch ${branchName} for: ${projectName}`);
+  logger.info(`[git.ts] Deleting branch ${branchName} for: ${projectName}`);
   return executeGitCommand(projectName, `branch -D ${branchName}`);
 }

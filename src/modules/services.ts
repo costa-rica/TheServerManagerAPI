@@ -2,6 +2,7 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import fs from "fs/promises";
 import path from "path";
+import logger from "../config/logger";
 
 const execAsync = promisify(exec);
 
@@ -14,24 +15,24 @@ export async function executeSystemctlStatus(
   filename: string
 ): Promise<{ stdout: string; stderr: string }> {
   const command = `sudo systemctl status ${filename}`;
-  console.log(`[services.ts] Executing command: ${command}`);
+  logger.info(`[services.ts] Executing command: ${command}`);
 
   try {
     const { stdout, stderr } = await execAsync(command);
-    console.log(`[services.ts] Command succeeded for ${filename}`);
-    console.log(`[services.ts] stdout length: ${stdout.length} chars`);
+    logger.info(`[services.ts] Command succeeded for ${filename}`);
+    logger.info(`[services.ts] stdout length: ${stdout.length} chars`);
     if (stderr) {
-      console.warn(`[services.ts] stderr for ${filename}: ${stderr}`);
+      logger.warn(`[services.ts] stderr for ${filename}: ${stderr}`);
     }
     return { stdout, stderr };
   } catch (error: any) {
     // systemctl returns non-zero exit code for inactive services
     // We still want to capture the output
-    console.warn(`[services.ts] Command failed with non-zero exit for ${filename}`);
-    console.log(`[services.ts] Error code: ${error.code}`);
-    console.log(`[services.ts] Error message: ${error.message}`);
-    console.log(`[services.ts] stdout length: ${error.stdout?.length || 0} chars`);
-    console.log(`[services.ts] stderr: ${error.stderr || 'none'}`);
+    logger.warn(`[services.ts] Command failed with non-zero exit for ${filename}`);
+    logger.info(`[services.ts] Error code: ${error.code}`);
+    logger.info(`[services.ts] Error message: ${error.message}`);
+    logger.info(`[services.ts] stdout length: ${error.stdout?.length || 0} chars`);
+    logger.info(`[services.ts] stderr: ${error.stderr || 'none'}`);
 
     return {
       stdout: error.stdout || "",
@@ -46,10 +47,10 @@ export async function executeSystemctlStatus(
  * @returns The loaded line (e.g., "loaded (/etc/systemd/system/myapp.service; enabled; preset: enabled)")
  */
 export function parseLoadedStatus(output: string): string {
-  console.log(`[services.ts] Parsing loaded status from ${output.length} chars of output`);
+  logger.info(`[services.ts] Parsing loaded status from ${output.length} chars of output`);
 
   if (!output || output.trim().length === 0) {
-    console.warn(`[services.ts] Output is empty, cannot parse loaded status`);
+    logger.warn(`[services.ts] Output is empty, cannot parse loaded status`);
     return "unknown";
   }
 
@@ -60,12 +61,12 @@ export function parseLoadedStatus(output: string): string {
     if (trimmedLine.startsWith("Loaded:")) {
       // Extract everything after "Loaded: "
       const loaded = trimmedLine.replace(/^Loaded:\s*/, "");
-      console.log(`[services.ts] Found Loaded status: ${loaded}`);
+      logger.info(`[services.ts] Found Loaded status: ${loaded}`);
       return loaded;
     }
   }
 
-  console.warn(`[services.ts] No "Loaded:" line found in output`);
+  logger.warn(`[services.ts] No "Loaded:" line found in output`);
   return "unknown";
 }
 
@@ -85,17 +86,17 @@ export function extractOnStartStatus(loadedLine: string): string {
 
   // Look for "enabled" or "disabled" between semicolons
   if (loadedLine.includes("; enabled;") || loadedLine.includes("; enabled)")) {
-    console.log(`[services.ts] Service is enabled`);
+    logger.info(`[services.ts] Service is enabled`);
     return "enabled";
   } else if (loadedLine.includes("; disabled;") || loadedLine.includes("; disabled)")) {
-    console.log(`[services.ts] Service is disabled`);
+    logger.info(`[services.ts] Service is disabled`);
     return "disabled";
   } else if (loadedLine.includes("; static;") || loadedLine.includes("; static)")) {
-    console.log(`[services.ts] Service is static (cannot be enabled/disabled)`);
+    logger.info(`[services.ts] Service is static (cannot be enabled/disabled)`);
     return "static";
   }
 
-  console.warn(`[services.ts] Could not determine enabled/disabled status from: ${loadedLine}`);
+  logger.warn(`[services.ts] Could not determine enabled/disabled status from: ${loadedLine}`);
   return "unknown";
 }
 
@@ -112,23 +113,23 @@ export function simplifyActiveStatus(activeLine: string): string {
   const lowerActiveLine = activeLine.toLowerCase();
 
   if (lowerActiveLine.startsWith("active")) {
-    console.log(`[services.ts] Simplified status: active`);
+    logger.info(`[services.ts] Simplified status: active`);
     return "active";
   } else if (lowerActiveLine.startsWith("inactive")) {
-    console.log(`[services.ts] Simplified status: inactive`);
+    logger.info(`[services.ts] Simplified status: inactive`);
     return "inactive";
   } else if (lowerActiveLine.startsWith("failed")) {
-    console.log(`[services.ts] Simplified status: failed`);
+    logger.info(`[services.ts] Simplified status: failed`);
     return "failed";
   } else if (lowerActiveLine.startsWith("activating")) {
-    console.log(`[services.ts] Simplified status: activating`);
+    logger.info(`[services.ts] Simplified status: activating`);
     return "activating";
   } else if (lowerActiveLine.startsWith("deactivating")) {
-    console.log(`[services.ts] Simplified status: deactivating`);
+    logger.info(`[services.ts] Simplified status: deactivating`);
     return "deactivating";
   }
 
-  console.warn(`[services.ts] Could not simplify active status from: ${activeLine}`);
+  logger.warn(`[services.ts] Could not simplify active status from: ${activeLine}`);
   return "unknown";
 }
 
@@ -143,10 +144,10 @@ export function parseServiceStatus(output: string): {
   status: string;
   onStartStatus: string;
 } {
-  console.log(`[services.ts] Parsing service status from ${output.length} chars of output`);
+  logger.info(`[services.ts] Parsing service status from ${output.length} chars of output`);
 
   if (!output || output.trim().length === 0) {
-    console.warn(`[services.ts] Output is empty, cannot parse status`);
+    logger.warn(`[services.ts] Output is empty, cannot parse status`);
     return {
       loaded: "unknown",
       active: "unknown",
@@ -156,7 +157,7 @@ export function parseServiceStatus(output: string): {
   }
 
   const lines = output.split("\n");
-  console.log(`[services.ts] Output has ${lines.length} lines`);
+  logger.info(`[services.ts] Output has ${lines.length} lines`);
 
   let activeLine = "unknown";
   let loadedLine = "unknown";
@@ -167,23 +168,23 @@ export function parseServiceStatus(output: string): {
     if (trimmedLine.startsWith("Active:")) {
       // Extract everything after "Active: "
       activeLine = trimmedLine.replace(/^Active:\s*/, "");
-      console.log(`[services.ts] Found Active status: ${activeLine}`);
+      logger.info(`[services.ts] Found Active status: ${activeLine}`);
     }
 
     if (trimmedLine.startsWith("Loaded:")) {
       // Extract everything after "Loaded: "
       loadedLine = trimmedLine.replace(/^Loaded:\s*/, "");
-      console.log(`[services.ts] Found Loaded status: ${loadedLine}`);
+      logger.info(`[services.ts] Found Loaded status: ${loadedLine}`);
     }
   }
 
   if (activeLine === "unknown") {
-    console.warn(`[services.ts] No "Active:" line found in output`);
-    console.log(`[services.ts] First 200 chars of output: ${output.substring(0, 200)}`);
+    logger.warn(`[services.ts] No "Active:" line found in output`);
+    logger.info(`[services.ts] First 200 chars of output: ${output.substring(0, 200)}`);
   }
 
   if (loadedLine === "unknown") {
-    console.warn(`[services.ts] No "Loaded:" line found in output`);
+    logger.warn(`[services.ts] No "Loaded:" line found in output`);
   }
 
   const status = simplifyActiveStatus(activeLine);
@@ -209,10 +210,10 @@ export function parseTimerStatus(output: string): {
   timerOnStartStatus: string;
   timerTrigger: string;
 } {
-  console.log(`[services.ts] Parsing timer status from ${output.length} chars of output`);
+  logger.info(`[services.ts] Parsing timer status from ${output.length} chars of output`);
 
   if (!output || output.trim().length === 0) {
-    console.warn(`[services.ts] Timer output is empty, cannot parse`);
+    logger.warn(`[services.ts] Timer output is empty, cannot parse`);
     return {
       timerLoaded: "unknown",
       timerActive: "unknown",
@@ -232,23 +233,23 @@ export function parseTimerStatus(output: string): {
 
     if (trimmedLine.startsWith("Loaded:")) {
       timerLoaded = trimmedLine.replace(/^Loaded:\s*/, "");
-      console.log(`[services.ts] Found timer Loaded status: ${timerLoaded}`);
+      logger.info(`[services.ts] Found timer Loaded status: ${timerLoaded}`);
     }
 
     if (trimmedLine.startsWith("Active:")) {
       timerActive = trimmedLine.replace(/^Active:\s*/, "");
-      console.log(`[services.ts] Found timer Active status: ${timerActive}`);
+      logger.info(`[services.ts] Found timer Active status: ${timerActive}`);
     }
 
     if (trimmedLine.startsWith("Trigger:")) {
       timerTrigger = trimmedLine.replace(/^Trigger:\s*/, "");
-      console.log(`[services.ts] Found timer Trigger: ${timerTrigger}`);
+      logger.info(`[services.ts] Found timer Trigger: ${timerTrigger}`);
     }
   }
 
   if (timerLoaded === "unknown" || timerActive === "unknown" || timerTrigger === "unknown") {
-    console.warn(`[services.ts] Could not find Loaded, Active, or Trigger in timer output`);
-    console.log(`[services.ts] First 200 chars of timer output: ${output.substring(0, 200)}`);
+    logger.warn(`[services.ts] Could not find Loaded, Active, or Trigger in timer output`);
+    logger.info(`[services.ts] First 200 chars of timer output: ${output.substring(0, 200)}`);
   }
 
   // Simplify the active status to just "active" or "inactive"
@@ -271,10 +272,10 @@ export async function getServiceStatus(filename: string): Promise<{
   status: string;
   onStartStatus: string;
 }> {
-  console.log(`[services.ts] Getting service status for: ${filename}`);
+  logger.info(`[services.ts] Getting service status for: ${filename}`);
   const { stdout } = await executeSystemctlStatus(filename);
   const statusObj = parseServiceStatus(stdout);
-  console.log(`[services.ts] Final status for ${filename}:`, statusObj);
+  logger.info(`[services.ts] Final status for ${filename}:`, statusObj);
   return statusObj;
 }
 
@@ -286,10 +287,10 @@ export async function getServiceStatus(filename: string): Promise<{
 export async function getTimerStatusAndTrigger(
   filenameTimer: string
 ): Promise<{ timerLoaded: string; timerActive: string; timerStatus: string; timerOnStartStatus: string; timerTrigger: string }> {
-  console.log(`[services.ts] Getting timer status for: ${filenameTimer}`);
+  logger.info(`[services.ts] Getting timer status for: ${filenameTimer}`);
   const { stdout } = await executeSystemctlStatus(filenameTimer);
   const result = parseTimerStatus(stdout);
-  console.log(`[services.ts] Final timer status for ${filenameTimer}: ${JSON.stringify(result)}`);
+  logger.info(`[services.ts] Final timer status for ${filenameTimer}: ${JSON.stringify(result)}`);
   return result;
 }
 
@@ -304,15 +305,15 @@ export async function toggleService(
   filename: string
 ): Promise<{ success: boolean; stdout: string; stderr: string; error?: string }> {
   const command = `sudo systemctl ${action} ${filename}`;
-  console.log(`[services.ts] Executing toggle command: ${command}`);
+  logger.info(`[services.ts] Executing toggle command: ${command}`);
 
   try {
     const { stdout, stderr } = await execAsync(command);
-    console.log(`[services.ts] Toggle command succeeded for ${action} ${filename}`);
+    logger.info(`[services.ts] Toggle command succeeded for ${action} ${filename}`);
     return { success: true, stdout, stderr };
   } catch (error: any) {
-    console.error(`[services.ts] Toggle command failed for ${action} ${filename}`);
-    console.error(`[services.ts] Error: ${error.message}`);
+    logger.error(`[services.ts] Toggle command failed for ${action} ${filename}`);
+    logger.error(`[services.ts] Error: ${error.message}`);
     return {
       success: false,
       stdout: error.stdout || "",
@@ -333,14 +334,14 @@ export async function readLogFile(
   name: string
 ): Promise<{ success: boolean; content?: string; error?: string }> {
   const logFilePath = path.join(pathToLogs, `${name}.log`);
-  console.log(`[services.ts] Reading log file: ${logFilePath}`);
+  logger.info(`[services.ts] Reading log file: ${logFilePath}`);
 
   try {
     // Check if directory exists
     try {
       await fs.access(pathToLogs);
     } catch (error) {
-      console.error(`[services.ts] Directory does not exist: ${pathToLogs}`);
+      logger.error(`[services.ts] Directory does not exist: ${pathToLogs}`);
       return {
         success: false,
         error: `Log directory does not exist: ${pathToLogs}`,
@@ -351,7 +352,7 @@ export async function readLogFile(
     try {
       await fs.access(logFilePath);
     } catch (error) {
-      console.error(`[services.ts] Log file does not exist: ${logFilePath}`);
+      logger.error(`[services.ts] Log file does not exist: ${logFilePath}`);
       return {
         success: false,
         error: `Log file does not exist: ${logFilePath}`,
@@ -360,10 +361,10 @@ export async function readLogFile(
 
     // Read the log file
     const content = await fs.readFile(logFilePath, "utf8");
-    console.log(`[services.ts] Successfully read log file, size: ${content.length} bytes`);
+    logger.info(`[services.ts] Successfully read log file, size: ${content.length} bytes`);
     return { success: true, content };
   } catch (error: any) {
-    console.error(`[services.ts] Error reading log file: ${error.message}`);
+    logger.error(`[services.ts] Error reading log file: ${error.message}`);
     return {
       success: false,
       error: `Permission error or failed to read log file: ${error.message}`,

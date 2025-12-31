@@ -13,6 +13,7 @@ import {
 import { getMachineInfo } from "../modules/machines";
 import { createNginxConfigFromTemplate } from "../modules/nginx";
 import { generateNginxScanReport } from "../modules/nginxReports";
+import logger from "../config/logger";
 import mongoose from "mongoose";
 import fs from "fs";
 import path from "path";
@@ -34,7 +35,7 @@ router.get("/", async (req: Request, res: Response) => {
 
     res.json(populatedNginxFiles);
   } catch (error) {
-    console.error("Error fetching nginx files:", error);
+    logger.error("Error fetching nginx files:", error);
     res.status(500).json({
       error: {
         code: "INTERNAL_ERROR",
@@ -188,7 +189,7 @@ router.get("/scan-nginx-dir", async (req: Request, res: Response) => {
       errorEntries: errors,
     });
   } catch (error) {
-    console.error("Error scanning nginx directory:", error);
+    logger.error("Error scanning nginx directory:", error);
     res.status(500).json({
       error: {
         code: "INTERNAL_ERROR",
@@ -203,10 +204,10 @@ router.get("/scan-nginx-dir", async (req: Request, res: Response) => {
 // 🔹 POST /nginx/create-config-file: Create nginx configuration file
 router.post("/create-config-file", async (req: Request, res: Response) => {
   // Log request body for testing
-  console.log("📥 POST /nginx/create-config-file - Request body:");
-  console.log(JSON.stringify(req.body, null, 2));
-  console.log("Body type:", typeof req.body);
-  console.log("Body keys:", Object.keys(req.body || {}));
+  logger.info("📥 POST /nginx/create-config-file - Request body:");
+  logger.info(JSON.stringify(req.body, null, 2));
+  logger.info("Body type:", typeof req.body);
+  logger.info("Body keys:", Object.keys(req.body || {}));
   try {
     // Validate required fields
     const { isValid, missingKeys } = checkBodyReturnMissing(req.body, [
@@ -445,7 +446,7 @@ router.post("/create-config-file", async (req: Request, res: Response) => {
       databaseRecord: nginxFileRecord,
     });
   } catch (error) {
-    console.error("Error creating nginx config file:", error);
+    logger.error("Error creating nginx config file:", error);
     res.status(500).json({
       error: {
         code: "INTERNAL_ERROR",
@@ -467,7 +468,7 @@ router.delete("/clear", async (req: Request, res: Response) => {
       deletedCount: result.deletedCount,
     });
   } catch (error) {
-    console.error("Error clearing nginx files:", error);
+    logger.error("Error clearing nginx files:", error);
     res.status(500).json({
       error: {
         code: "INTERNAL_ERROR",
@@ -514,10 +515,10 @@ router.delete("/:publicId", async (req: Request, res: Response) => {
     // Delete physical file (continue even if file doesn't exist)
     try {
       await fs.promises.unlink(filePath);
-      console.log(`🗑️  Deleted nginx config file: ${filePath}`);
+      logger.info(`🗑️  Deleted nginx config file: ${filePath}`);
     } catch (error) {
       // Log warning but continue - file may already be deleted
-      console.warn(
+      logger.warn(
         `⚠️  File not found (will still delete DB entry): ${filePath}`
       );
     }
@@ -531,7 +532,7 @@ router.delete("/:publicId", async (req: Request, res: Response) => {
       filePath,
     });
   } catch (error) {
-    console.error("Error deleting nginx configuration:", error);
+    logger.error("Error deleting nginx configuration:", error);
     res.status(500).json({
       error: {
         code: "INTERNAL_ERROR",

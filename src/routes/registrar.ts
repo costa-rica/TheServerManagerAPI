@@ -2,6 +2,7 @@ import express from "express";
 import type { Request, Response } from "express";
 import { authenticateToken } from "../modules/authentication";
 import { checkBodyReturnMissing } from "../modules/common";
+import logger from "../config/logger";
 
 const router = express.Router();
 
@@ -17,9 +18,12 @@ router.get(
           error: {
             code: "INTERNAL_ERROR",
             message: "DNS service credentials not configured",
-            details: process.env.NODE_ENV !== 'production' ? "Porkbun API credentials not configured" : undefined,
-            status: 500
-          }
+            details:
+              process.env.NODE_ENV !== "production"
+                ? "Porkbun API credentials not configured"
+                : undefined,
+            status: 500,
+          },
         });
       }
 
@@ -46,9 +50,12 @@ router.get(
           error: {
             code: "INTERNAL_ERROR",
             message: "DNS service error",
-            details: process.env.NODE_ENV !== 'production' ? `Porkbun API error: ${data.message || "Unknown error"}` : undefined,
-            status: 500
-          }
+            details:
+              process.env.NODE_ENV !== "production"
+                ? `Porkbun API error: ${data.message || "Unknown error"}`
+                : undefined,
+            status: 500,
+          },
         });
       }
 
@@ -57,9 +64,12 @@ router.get(
           error: {
             code: "INTERNAL_ERROR",
             message: "Unexpected DNS service response",
-            details: process.env.NODE_ENV !== 'production' ? "Unexpected response from Porkbun API" : undefined,
-            status: 500
-          }
+            details:
+              process.env.NODE_ENV !== "production"
+                ? "Unexpected response from Porkbun API"
+                : undefined,
+            status: 500,
+          },
         });
       }
 
@@ -73,14 +83,19 @@ router.get(
 
       res.json({ domainsArray });
     } catch (error) {
-      console.error("Error fetching Porkbun domains:", error);
+      logger.error("Error fetching Porkbun domains:", error);
       res.status(500).json({
         error: {
           code: "INTERNAL_ERROR",
           message: "Failed to fetch domains",
-          details: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.message : "Unknown error") : undefined,
-          status: 500
-        }
+          details:
+            process.env.NODE_ENV !== "production"
+              ? error instanceof Error
+                ? error.message
+                : "Unknown error"
+              : undefined,
+          status: 500,
+        },
       });
     }
   }
@@ -108,8 +123,8 @@ router.post(
             code: "VALIDATION_ERROR",
             message: "Request validation failed",
             details: `Missing required fields: ${missingKeys.join(", ")}`,
-            status: 400
-          }
+            status: 400,
+          },
         });
       }
 
@@ -119,9 +134,12 @@ router.post(
           error: {
             code: "INTERNAL_ERROR",
             message: "DNS service credentials not configured",
-            details: process.env.NODE_ENV !== 'production' ? "Porkbun API credentials not configured" : undefined,
-            status: 500
-          }
+            details:
+              process.env.NODE_ENV !== "production"
+                ? "Porkbun API credentials not configured"
+                : undefined,
+            status: 500,
+          },
         });
       }
 
@@ -152,9 +170,12 @@ router.post(
           error: {
             code: "INTERNAL_ERROR",
             message: "DNS service error",
-            details: process.env.NODE_ENV !== 'production' ? `Porkbun API error: ${data.message || "Unknown error"}` : undefined,
-            status: 500
-          }
+            details:
+              process.env.NODE_ENV !== "production"
+                ? `Porkbun API error: ${data.message || "Unknown error"}`
+                : undefined,
+            status: 500,
+          },
         });
       }
 
@@ -163,9 +184,12 @@ router.post(
           error: {
             code: "INTERNAL_ERROR",
             message: "Unexpected DNS service response",
-            details: process.env.NODE_ENV !== 'production' ? "Unexpected response from Porkbun API" : undefined,
-            status: 500
-          }
+            details:
+              process.env.NODE_ENV !== "production"
+                ? "Unexpected response from Porkbun API"
+                : undefined,
+            status: 500,
+          },
         });
       }
 
@@ -179,14 +203,19 @@ router.post(
         ttl: 600,
       });
     } catch (error) {
-      console.error("Error creating subdomain on Porkbun:", error);
+      logger.error("Error creating subdomain on Porkbun:", error);
       res.status(500).json({
         error: {
           code: "INTERNAL_ERROR",
           message: "Failed to create subdomain",
-          details: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.message : "Unknown error") : undefined,
-          status: 500
-        }
+          details:
+            process.env.NODE_ENV !== "production"
+              ? error instanceof Error
+                ? error.message
+                : "Unknown error"
+              : undefined,
+          status: 500,
+        },
       });
     }
   }
@@ -207,8 +236,8 @@ router.get(
             code: "VALIDATION_ERROR",
             message: "Request validation failed",
             details: "Domain parameter is required",
-            status: 400
-          }
+            status: 400,
+          },
         });
       }
 
@@ -218,9 +247,12 @@ router.get(
           error: {
             code: "INTERNAL_ERROR",
             message: "DNS service credentials not configured",
-            details: process.env.NODE_ENV !== 'production' ? "Porkbun API credentials not configured" : undefined,
-            status: 500
-          }
+            details:
+              process.env.NODE_ENV !== "production"
+                ? "Porkbun API credentials not configured"
+                : undefined,
+            status: 500,
+          },
         });
       }
 
@@ -247,9 +279,12 @@ router.get(
           error: {
             code: "INTERNAL_ERROR",
             message: "DNS service error",
-            details: process.env.NODE_ENV !== 'production' ? `Porkbun API error: ${data.message || "Unknown error"}` : undefined,
-            status: 500
-          }
+            details:
+              process.env.NODE_ENV !== "production"
+                ? `Porkbun API error: ${data.message || "Unknown error"}`
+                : undefined,
+            status: 500,
+          },
         });
       }
 
@@ -258,9 +293,12 @@ router.get(
           error: {
             code: "INTERNAL_ERROR",
             message: "Unexpected DNS service response",
-            details: process.env.NODE_ENV !== 'production' ? "Unexpected response from Porkbun API" : undefined,
-            status: 500
-          }
+            details:
+              process.env.NODE_ENV !== "production"
+                ? "Unexpected response from Porkbun API"
+                : undefined,
+            status: 500,
+          },
         });
       }
 
@@ -275,14 +313,19 @@ router.get(
 
       res.json({ subdomainsArray });
     } catch (error) {
-      console.error("Error fetching DNS records from Porkbun:", error);
+      logger.error("Error fetching DNS records from Porkbun:", error);
       res.status(500).json({
         error: {
           code: "INTERNAL_ERROR",
           message: "Failed to fetch DNS records",
-          details: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.message : "Unknown error") : undefined,
-          status: 500
-        }
+          details:
+            process.env.NODE_ENV !== "production"
+              ? error instanceof Error
+                ? error.message
+                : "Unknown error"
+              : undefined,
+          status: 500,
+        },
       });
     }
   }
@@ -309,8 +352,8 @@ router.delete(
             code: "VALIDATION_ERROR",
             message: "Request validation failed",
             details: `Missing required fields: ${missingKeys.join(", ")}`,
-            status: 400
-          }
+            status: 400,
+          },
         });
       }
 
@@ -320,9 +363,12 @@ router.delete(
           error: {
             code: "INTERNAL_ERROR",
             message: "DNS service credentials not configured",
-            details: process.env.NODE_ENV !== 'production' ? "Porkbun API credentials not configured" : undefined,
-            status: 500
-          }
+            details:
+              process.env.NODE_ENV !== "production"
+                ? "Porkbun API credentials not configured"
+                : undefined,
+            status: 500,
+          },
         });
       }
 
@@ -349,9 +395,12 @@ router.delete(
           error: {
             code: "INTERNAL_ERROR",
             message: "DNS service error",
-            details: process.env.NODE_ENV !== 'production' ? `Porkbun API error: ${data.message || "Unknown error"}` : undefined,
-            status: 500
-          }
+            details:
+              process.env.NODE_ENV !== "production"
+                ? `Porkbun API error: ${data.message || "Unknown error"}`
+                : undefined,
+            status: 500,
+          },
         });
       }
 
@@ -360,9 +409,12 @@ router.delete(
           error: {
             code: "INTERNAL_ERROR",
             message: "Unexpected DNS service response",
-            details: process.env.NODE_ENV !== 'production' ? "Unexpected response from Porkbun API" : undefined,
-            status: 500
-          }
+            details:
+              process.env.NODE_ENV !== "production"
+                ? "Unexpected response from Porkbun API"
+                : undefined,
+            status: 500,
+          },
         });
       }
 
@@ -373,14 +425,19 @@ router.delete(
         subdomain,
       });
     } catch (error) {
-      console.error("Error deleting DNS record from Porkbun:", error);
+      logger.error("Error deleting DNS record from Porkbun:", error);
       res.status(500).json({
         error: {
           code: "INTERNAL_ERROR",
           message: "Failed to delete DNS record",
-          details: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.message : "Unknown error") : undefined,
-          status: 500
-        }
+          details:
+            process.env.NODE_ENV !== "production"
+              ? error instanceof Error
+                ? error.message
+                : "Unknown error"
+              : undefined,
+          status: 500,
+        },
       });
     }
   }

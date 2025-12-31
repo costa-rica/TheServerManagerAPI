@@ -1,6 +1,7 @@
 import os from "os";
 import fs from "fs/promises";
 import path from "path";
+import logger from "../config/logger";
 
 // Helper function to get machine name and local IP address
 function getMachineInfo(): { machineName: string; localIpAddress: string } {
@@ -54,7 +55,7 @@ function getMachineInfo(): { machineName: string; localIpAddress: string } {
  */
 async function getServicesNameAndValidateServiceFile(service: any): Promise<void> {
 	const { filename } = service;
-	console.log(`[machines.ts getServicesNameAndValidateServiceFile] Starting validation for: ${filename}`);
+	logger.info(`[machines.ts getServicesNameAndValidateServiceFile] Starting validation for: ${filename}`);
 
 	// Validate filename is not null, undefined, empty, or whitespace-only
 	if (!filename || typeof filename !== "string" || filename.trim() === "") {
@@ -82,18 +83,18 @@ async function getServicesNameAndValidateServiceFile(service: any): Promise<void
 
 	const serviceFilePath = `/etc/systemd/system/${filename}`;
 
-	console.log(`[machines.ts] Validating service file: ${filename}`);
+	logger.info(`[machines.ts] Validating service file: ${filename}`);
 
 	// Check if service file exists and is accessible
 	try {
 		await fs.access(serviceFilePath);
-		console.log(`[machines.ts getServicesNameAndValidateServiceFile] fs.access succeeded for: ${serviceFilePath}`);
+		logger.info(`[machines.ts getServicesNameAndValidateServiceFile] fs.access succeeded for: ${serviceFilePath}`);
 	} catch (error: any) {
-		console.log(`[machines.ts getServicesNameAndValidateServiceFile] fs.access failed for ${serviceFilePath}. Error code: ${error.code}`);
+		logger.info(`[machines.ts getServicesNameAndValidateServiceFile] fs.access failed for ${serviceFilePath}. Error code: ${error.code}`);
 
 		// Distinguish between file not found and permission denied
 		if (error.code === 'EACCES' || error.code === 'EPERM') {
-			console.log(`[machines.ts getServicesNameAndValidateServiceFile] Throwing 403 PERMISSION_DENIED for: ${filename}`);
+			logger.info(`[machines.ts getServicesNameAndValidateServiceFile] Throwing 403 PERMISSION_DENIED for: ${filename}`);
 			throw {
 				error: {
 					code: "SERVICE_FILE_PERMISSION_DENIED",
@@ -105,7 +106,7 @@ async function getServicesNameAndValidateServiceFile(service: any): Promise<void
 		}
 
 		// File doesn't exist (ENOENT) or other error
-		console.log(`[machines.ts getServicesNameAndValidateServiceFile] Throwing 404 NOT_FOUND for: ${filename} (error code: ${error.code})`);
+		logger.info(`[machines.ts getServicesNameAndValidateServiceFile] Throwing 404 NOT_FOUND for: ${filename} (error code: ${error.code})`);
 		throw {
 			error: {
 				code: "SERVICE_FILE_NOT_FOUND",
@@ -120,7 +121,7 @@ async function getServicesNameAndValidateServiceFile(service: any): Promise<void
 	let serviceFileContent: string;
 	try {
 		serviceFileContent = await fs.readFile(serviceFilePath, "utf8");
-		console.log(`[machines.ts] Successfully read service file: ${filename}`);
+		logger.info(`[machines.ts] Successfully read service file: ${filename}`);
 	} catch (error: any) {
 		throw {
 			error: {
@@ -146,7 +147,7 @@ async function getServicesNameAndValidateServiceFile(service: any): Promise<void
 	}
 
 	const workingDirectory = workingDirectoryMatch[1].trim();
-	console.log(`[machines.ts] Found WorkingDirectory for ${filename}: ${workingDirectory}`);
+	logger.info(`[machines.ts] Found WorkingDirectory for ${filename}: ${workingDirectory}`);
 
 	// Check if WorkingDirectory exists and is accessible
 	try {
@@ -186,12 +187,12 @@ async function getServicesNameAndValidateServiceFile(service: any): Promise<void
 	// Try .env first
 	try {
 		await fs.access(envFilePath);
-		console.log(`[machines.ts] Found .env file for ${filename}`);
+		logger.info(`[machines.ts] Found .env file for ${filename}`);
 
 		// Read .env file
 		try {
 			envFileContent = await fs.readFile(envFilePath, "utf8");
-			console.log(`[machines.ts] Successfully read .env file for ${filename}`);
+			logger.info(`[machines.ts] Successfully read .env file for ${filename}`);
 			envFileUsed = ".env";
 		} catch (error: any) {
 			// Distinguish between permission denied and other read errors
@@ -230,7 +231,7 @@ async function getServicesNameAndValidateServiceFile(service: any): Promise<void
 		}
 
 		name = nameAppMatch[1].trim();
-		console.log(`[machines.ts] Found NAME_APP in .env for ${filename}: ${name}`);
+		logger.info(`[machines.ts] Found NAME_APP in .env for ${filename}: ${name}`);
 	} catch (error: any) {
 		// If .env doesn't exist, try .env.local
 		if (error.error?.code) {
@@ -239,10 +240,10 @@ async function getServicesNameAndValidateServiceFile(service: any): Promise<void
 		}
 
 		// .env doesn't exist, try .env.local
-		console.log(`[machines.ts] .env not found, trying .env.local for ${filename}`);
+		logger.info(`[machines.ts] .env not found, trying .env.local for ${filename}`);
 		try {
 			await fs.access(envLocalFilePath);
-			console.log(`[machines.ts] Found .env.local file for ${filename}`);
+			logger.info(`[machines.ts] Found .env.local file for ${filename}`);
 		} catch (error: any) {
 			// Distinguish between file not found and permission denied
 			if (error.code === 'EACCES' || error.code === 'EPERM') {
@@ -270,7 +271,7 @@ async function getServicesNameAndValidateServiceFile(service: any): Promise<void
 		// Read .env.local file
 		try {
 			envFileContent = await fs.readFile(envLocalFilePath, "utf8");
-			console.log(`[machines.ts] Successfully read .env.local file for ${filename}`);
+			logger.info(`[machines.ts] Successfully read .env.local file for ${filename}`);
 			envFileUsed = ".env.local";
 		} catch (error: any) {
 			// Distinguish between permission denied and other read errors
@@ -309,14 +310,14 @@ async function getServicesNameAndValidateServiceFile(service: any): Promise<void
 		}
 
 		name = nameAppMatchLocal[1].trim();
-		console.log(`[machines.ts] Found NAME_APP in .env.local for ${filename}: ${name}`);
+		logger.info(`[machines.ts] Found NAME_APP in .env.local for ${filename}: ${name}`);
 	}
 
 	// Update service object in place
 	service.name = name;
 	service.workingDirectory = workingDirectory;
 
-	console.log(`[machines.ts] Successfully validated and populated service: ${filename}`);
+	logger.info(`[machines.ts] Successfully validated and populated service: ${filename}`);
 }
 
 /**

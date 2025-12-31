@@ -1,6 +1,7 @@
 import { exec } from "child_process";
 import { promisify } from "util";
 import path from "path";
+import logger from "../config/logger";
 
 const execAsync = promisify(exec);
 
@@ -64,19 +65,19 @@ export async function npmInstall(
   const projectPath = path.join(BASE_APPLICATIONS_PATH, projectName);
   const command = `cd "${projectPath}" && npm install`;
 
-  console.log(`[npm.ts] Executing npm install for: ${projectName}`);
-  console.log(`[npm.ts] Command: ${command}`);
+  logger.info(`[npm.ts] Executing npm install for: ${projectName}`);
+  logger.info(`[npm.ts] Command: ${command}`);
 
   try {
     const { stdout, stderr } = await execAsync(command, { maxBuffer: 10 * 1024 * 1024 }); // 10MB buffer
 
-    console.log(`[npm.ts] npm install succeeded for ${projectName}`);
+    logger.info(`[npm.ts] npm install succeeded for ${projectName}`);
 
     // Parse warnings even on success
     const warningsList = parseWarnings(stdout, stderr);
     const warnings = warningsList.length > 0 ? warningsList.join("\n") : "no warnings";
 
-    console.log(`[npm.ts] Found ${warningsList.length} warnings`);
+    logger.info(`[npm.ts] Found ${warningsList.length} warnings`);
 
     return {
       status: "success",
@@ -84,8 +85,8 @@ export async function npmInstall(
       failureReason: null
     };
   } catch (error: any) {
-    console.error(`[npm.ts] npm install failed for ${projectName}`);
-    console.error(`[npm.ts] Error: ${error.message}`);
+    logger.error(`[npm.ts] npm install failed for ${projectName}`);
+    logger.error(`[npm.ts] Error: ${error.message}`);
 
     const stdout = error.stdout || "";
     const stderr = error.stderr || "";
@@ -116,19 +117,19 @@ export async function npmBuild(
   const projectPath = path.join(BASE_APPLICATIONS_PATH, projectName);
   const command = `cd "${projectPath}" && npm run build`;
 
-  console.log(`[npm.ts] Executing npm run build for: ${projectName}`);
-  console.log(`[npm.ts] Command: ${command}`);
+  logger.info(`[npm.ts] Executing npm run build for: ${projectName}`);
+  logger.info(`[npm.ts] Command: ${command}`);
 
   try {
     const { stdout, stderr } = await execAsync(command, { maxBuffer: 10 * 1024 * 1024 }); // 10MB buffer
 
-    console.log(`[npm.ts] npm run build succeeded for ${projectName}`);
+    logger.info(`[npm.ts] npm run build succeeded for ${projectName}`);
 
     // Parse warnings even on success
     const warningsList = parseWarnings(stdout, stderr);
     const warnings = warningsList.length > 0 ? warningsList.join("\n") : "no warnings";
 
-    console.log(`[npm.ts] Found ${warningsList.length} warnings`);
+    logger.info(`[npm.ts] Found ${warningsList.length} warnings`);
 
     return {
       status: "success",
@@ -136,8 +137,8 @@ export async function npmBuild(
       failureReason: null
     };
   } catch (error: any) {
-    console.error(`[npm.ts] npm run build failed for ${projectName}`);
-    console.error(`[npm.ts] Error: ${error.message}`);
+    logger.error(`[npm.ts] npm run build failed for ${projectName}`);
+    logger.error(`[npm.ts] Error: ${error.message}`);
 
     const stdout = error.stdout || "";
     const stderr = error.stderr || "";

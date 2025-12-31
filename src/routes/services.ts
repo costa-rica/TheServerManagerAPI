@@ -25,6 +25,7 @@ import {
   VALID_TIMER_TEMPLATES,
   type TemplateVariables,
 } from "../modules/systemd";
+import logger from "../config/logger";
 
 const router = express.Router();
 
@@ -33,15 +34,15 @@ router.use(authenticateToken);
 
 // 🔹 GET /services: Get all services running on this server
 router.get("/", async (req: Request, res: Response) => {
-  console.log("[services route] GET /services - Request received");
+  logger.info("[services route] GET /services - Request received");
   try {
     // Check if running in production/testing/Ubuntu environment
-    console.log(`[services route] NODE_ENV: ${process.env.NODE_ENV}`);
+    logger.info(`[services route] NODE_ENV: ${process.env.NODE_ENV}`);
     if (
       process.env.NODE_ENV !== "production" &&
       process.env.NODE_ENV !== "testing"
     ) {
-      console.warn(
+      logger.warn(
         "[services route] Not in production or testing environment, returning error"
       );
       return res.status(400).json({
@@ -56,13 +57,13 @@ router.get("/", async (req: Request, res: Response) => {
 
     // Get current machine info
     const { machineName } = getMachineInfo();
-    console.log(`[services route] Machine name from OS: ${machineName}`);
+    logger.info(`[services route] Machine name from OS: ${machineName}`);
 
     // Find the machine in the database by machineName
     const machine = await Machine.findOne({ machineName });
 
     if (!machine) {
-      console.error(
+      logger.error(
         `[services route] Machine "${machineName}" not found in database`
       );
       return res.status(404).json({
@@ -75,8 +76,8 @@ router.get("/", async (req: Request, res: Response) => {
       });
     }
 
-    console.log(`[services route] Machine found: ${machine.publicId}`);
-    console.log(
+    logger.info(`[services route] Machine found: ${machine.publicId}`);
+    logger.info(
       `[services route] Machine has ${
         machine.servicesArray?.length || 0
       } services`
@@ -84,7 +85,7 @@ router.get("/", async (req: Request, res: Response) => {
 
     // Check if machine has servicesArray
     if (!machine.servicesArray || machine.servicesArray.length === 0) {
-      console.warn(
+      logger.warn(
         `[services route] Machine "${machineName}" has no services configured`
       );
       return res.status(404).json({
@@ -98,13 +99,13 @@ router.get("/", async (req: Request, res: Response) => {
     }
 
     // Build servicesStatusArray by querying systemctl for each service
-    console.log(
+    logger.info(
       `[services route] Starting to query status for ${machine.servicesArray.length} services`
     );
 
     const servicesStatusArray = await Promise.all(
       machine.servicesArray.map(async (service, index) => {
-        console.log(
+        logger.info(
           `[services route] Processing service ${index + 1}/${
             machine.servicesArray.length
           }: ${service.name} (${service.filename})`
@@ -112,7 +113,7 @@ router.get("/", async (req: Request, res: Response) => {
         try {
           // Get service status
           const statusObj = await getServiceStatus(service.filename);
-          console.log(
+          logger.info(
             `[services route] Got status for ${service.filename}:`,
             statusObj
           );
@@ -126,7 +127,7 @@ router.get("/", async (req: Request, res: Response) => {
 
           // If service has a timer, get timer status and trigger
           if (service.filenameTimer) {
-            console.log(
+            logger.info(
               `[services route] Service has timer: ${service.filenameTimer}`
             );
             try {
@@ -142,11 +143,11 @@ router.get("/", async (req: Request, res: Response) => {
               serviceStatus.timerStatus = timerStatus;
               serviceStatus.timerOnStartStatus = timerOnStartStatus;
               serviceStatus.timerTrigger = timerTrigger;
-              console.log(
+              logger.info(
                 `[services route] Got timer status for ${service.filenameTimer}`
               );
             } catch (error) {
-              console.error(
+              logger.error(
                 `[services route] Error getting timer status for ${service.filenameTimer}:`,
                 error
               );
@@ -159,16 +160,16 @@ router.get("/", async (req: Request, res: Response) => {
             }
           }
 
-          console.log(
+          logger.info(
             `[services route] Completed processing service: ${service.name}`
           );
           return serviceStatus;
         } catch (error) {
-          console.error(
+          logger.error(
             `[services route] Error getting status for service ${service.filename}:`,
             error
           );
-          console.error(
+          logger.error(
             `[services route] Error stack:`,
             error instanceof Error ? error.stack : "N/A"
           );
@@ -185,13 +186,13 @@ router.get("/", async (req: Request, res: Response) => {
       })
     );
 
-    console.log(
+    logger.info(
       `[services route] Completed all service queries, returning ${servicesStatusArray.length} results`
     );
     res.json({ servicesStatusArray });
   } catch (error: any) {
-    console.error("[services route] Unhandled error in GET /services:", error);
-    console.error(
+    logger.error("[services route] Unhandled error in GET /services:", error);
+    logger.error(
       "[services route] Error stack:",
       error instanceof Error ? error.stack : "N/A"
     );
@@ -215,12 +216,12 @@ router.get("/", async (req: Request, res: Response) => {
 router.post(
   "/:serviceFilename/:toggleStatus",
   async (req: Request, res: Response) => {
-    console.log(
+    logger.info(
       "[services route] POST /services/:serviceFilename/:toggleStatus - Request received"
     );
     try {
       const { serviceFilename, toggleStatus } = req.params;
-      console.log(
+      logger.info(
         `[services route] serviceFilename: ${serviceFilename}, toggleStatus: ${toggleStatus}`
       );
 
@@ -263,7 +264,7 @@ router.post(
 
       // Get current machine info
       const { machineName } = getMachineInfo();
-      console.log(`[services route] Machine name from OS: ${machineName}`);
+      logger.info(`[services route] Machine name from OS: ${machineName}`);
 
       // Find the machine in the database by machineName
       const machine = await Machine.findOne({ machineName });
@@ -279,7 +280,7 @@ router.post(
         });
       }
 
-      console.log(`[services route] Machine found: ${machine.publicId}`);
+      logger.info(`[services route] Machine found: ${machine.publicId}`);
 
       // Check if machine has servicesArray
       if (!machine.servicesArray || machine.servicesArray.length === 0) {
@@ -310,7 +311,7 @@ router.post(
         });
       }
 
-      console.log(`[services route] Found service: ${service.name}`);
+      logger.info(`[services route] Found service: ${service.name}`);
 
       // Special handling for tsm-api.service and tsm-nextjs.service
       // These critical services should always restart instead of start/stop to ensure proper state
@@ -324,7 +325,7 @@ router.post(
       ) {
         actualToggleAction = "restart";
         if (toggleStatus !== "restart") {
-          console.log(
+          logger.info(
             `[services route] Overriding ${toggleStatus} to restart for ${serviceFilename}`
           );
         }
@@ -350,7 +351,7 @@ router.post(
         });
       }
 
-      console.log(
+      logger.info(
         `[services route] Successfully executed ${actualToggleAction} on ${serviceFilename}`
       );
 
@@ -380,7 +381,7 @@ router.post(
           serviceStatus.timerOnStartStatus = timerOnStartStatus;
           serviceStatus.timerTrigger = timerTrigger;
         } catch (error) {
-          console.error(`[services route] Error getting timer status:`, error);
+          logger.error(`[services route] Error getting timer status:`, error);
           serviceStatus.timerLoaded = "unknown";
           serviceStatus.timerActive = "unknown";
           serviceStatus.timerStatus = "unknown";
@@ -389,10 +390,10 @@ router.post(
         }
       }
 
-      console.log(`[services route] Returning updated service status`);
+      logger.info(`[services route] Returning updated service status`);
       res.json(serviceStatus);
     } catch (error: any) {
-      console.error(
+      logger.error(
         "[services route] Unhandled error in POST /services/:serviceFilename/:toggleStatus:",
         error
       );
@@ -415,10 +416,10 @@ router.post(
 
 // 🔹 GET /services/logs/:name: Get log file for a service
 router.get("/logs/:name", async (req: Request, res: Response) => {
-  console.log("[services route] GET /services/logs/:name - Request received");
+  logger.info("[services route] GET /services/logs/:name - Request received");
   try {
     const { name } = req.params;
-    console.log(`[services route] Log requested for service name: ${name}`);
+    logger.info(`[services route] Log requested for service name: ${name}`);
 
     // Check if running in production/testing/Ubuntu environment
     if (
@@ -437,7 +438,7 @@ router.get("/logs/:name", async (req: Request, res: Response) => {
 
     // Get current machine info
     const { machineName } = getMachineInfo();
-    console.log(`[services route] Machine name from OS: ${machineName}`);
+    logger.info(`[services route] Machine name from OS: ${machineName}`);
 
     // Find the machine in the database by machineName
     const machine = await Machine.findOne({ machineName });
@@ -453,7 +454,7 @@ router.get("/logs/:name", async (req: Request, res: Response) => {
       });
     }
 
-    console.log(`[services route] Machine found: ${machine.publicId}`);
+    logger.info(`[services route] Machine found: ${machine.publicId}`);
 
     // Check if machine has servicesArray
     if (!machine.servicesArray || machine.servicesArray.length === 0) {
@@ -481,7 +482,7 @@ router.get("/logs/:name", async (req: Request, res: Response) => {
       });
     }
 
-    console.log(
+    logger.info(
       `[services route] Found service: ${service.name}, pathToLogs: ${service.pathToLogs}`
     );
 
@@ -499,13 +500,13 @@ router.get("/logs/:name", async (req: Request, res: Response) => {
       });
     }
 
-    console.log(`[services route] Successfully read log file for ${name}`);
+    logger.info(`[services route] Successfully read log file for ${name}`);
 
     // Return log content as plain text
     res.set("Content-Type", "text/plain");
     res.send(logResult.content);
   } catch (error: any) {
-    console.error(
+    logger.error(
       "[services route] Unhandled error in GET /services/logs/:name:",
       error
     );
@@ -527,10 +528,10 @@ router.get("/logs/:name", async (req: Request, res: Response) => {
 
 // 🔹 GET /services/git/:name: Get remote branches for a service's git repository
 router.get("/git/:name", async (req: Request, res: Response) => {
-  console.log("[services route] GET /services/git/:name - Request received");
+  logger.info("[services route] GET /services/git/:name - Request received");
   try {
     const { name } = req.params;
-    console.log(`[services route] Git branches requested for service: ${name}`);
+    logger.info(`[services route] Git branches requested for service: ${name}`);
 
     // Check if running in production/testing/Ubuntu environment
     if (
@@ -549,7 +550,7 @@ router.get("/git/:name", async (req: Request, res: Response) => {
 
     // Get current machine info
     const { machineName } = getMachineInfo();
-    console.log(`[services route] Machine name from OS: ${machineName}`);
+    logger.info(`[services route] Machine name from OS: ${machineName}`);
 
     // Find the machine in the database by machineName
     const machine = await Machine.findOne({ machineName });
@@ -565,7 +566,7 @@ router.get("/git/:name", async (req: Request, res: Response) => {
       });
     }
 
-    console.log(`[services route] Machine found: ${machine.publicId}`);
+    logger.info(`[services route] Machine found: ${machine.publicId}`);
 
     // Check if machine has servicesArray
     if (!machine.servicesArray || machine.servicesArray.length === 0) {
@@ -593,7 +594,7 @@ router.get("/git/:name", async (req: Request, res: Response) => {
       });
     }
 
-    console.log(`[services route] Found service: ${service.name}`);
+    logger.info(`[services route] Found service: ${service.name}`);
 
     // Get remote branches
     const branchesResult = await getLocalBranches(name);
@@ -646,7 +647,7 @@ router.get("/git/:name", async (req: Request, res: Response) => {
       });
     }
 
-    console.log(
+    logger.info(
       `[services route] Successfully retrieved ${branchesResult.branches.length} local branches, ${remoteBranchesResult.branches.length} remote branches, and current branch: ${currentBranchResult.currentBranch}`
     );
     res.json({
@@ -655,7 +656,7 @@ router.get("/git/:name", async (req: Request, res: Response) => {
       currentBranch: currentBranchResult.currentBranch,
     });
   } catch (error: any) {
-    console.error(
+    logger.error(
       "[services route] Unhandled error in GET /services/git/:name:",
       error
     );
@@ -677,12 +678,12 @@ router.get("/git/:name", async (req: Request, res: Response) => {
 
 // 🔹 POST /services/git/:name/:action: Execute git fetch or pull
 router.post("/git/:name/:action", async (req: Request, res: Response) => {
-  console.log(
+  logger.info(
     "[services route] POST /services/git/:name/:action - Request received"
   );
   try {
     const { name, action } = req.params;
-    console.log(
+    logger.info(
       `[services route] Git action "${action}" requested for service: ${name}`
     );
 
@@ -716,7 +717,7 @@ router.post("/git/:name/:action", async (req: Request, res: Response) => {
 
     // Get current machine info
     const { machineName } = getMachineInfo();
-    console.log(`[services route] Machine name from OS: ${machineName}`);
+    logger.info(`[services route] Machine name from OS: ${machineName}`);
 
     // Find the machine in the database by machineName
     const machine = await Machine.findOne({ machineName });
@@ -732,7 +733,7 @@ router.post("/git/:name/:action", async (req: Request, res: Response) => {
       });
     }
 
-    console.log(`[services route] Machine found: ${machine.publicId}`);
+    logger.info(`[services route] Machine found: ${machine.publicId}`);
 
     // Check if machine has servicesArray
     if (!machine.servicesArray || machine.servicesArray.length === 0) {
@@ -760,7 +761,7 @@ router.post("/git/:name/:action", async (req: Request, res: Response) => {
       });
     }
 
-    console.log(`[services route] Found service: ${service.name}`);
+    logger.info(`[services route] Found service: ${service.name}`);
 
     // Execute git action
     const result =
@@ -778,7 +779,7 @@ router.post("/git/:name/:action", async (req: Request, res: Response) => {
       });
     }
 
-    console.log(`[services route] Successfully executed git ${action}`);
+    logger.info(`[services route] Successfully executed git ${action}`);
     res.json({
       success: true,
       action,
@@ -786,7 +787,7 @@ router.post("/git/:name/:action", async (req: Request, res: Response) => {
       stderr: result.stderr,
     });
   } catch (error: any) {
-    console.error(
+    logger.error(
       "[services route] Unhandled error in POST /services/git/:name/:action:",
       error
     );
@@ -810,12 +811,12 @@ router.post("/git/:name/:action", async (req: Request, res: Response) => {
 router.post(
   "/git/checkout/:name/:branchName",
   async (req: Request, res: Response) => {
-    console.log(
+    logger.info(
       "[services route] POST /services/git/checkout/:name/:branchName - Request received"
     );
     try {
       const { name, branchName } = req.params;
-      console.log(
+      logger.info(
         `[services route] Git checkout "${branchName}" requested for service: ${name}`
       );
 
@@ -836,7 +837,7 @@ router.post(
 
       // Get current machine info
       const { machineName } = getMachineInfo();
-      console.log(`[services route] Machine name from OS: ${machineName}`);
+      logger.info(`[services route] Machine name from OS: ${machineName}`);
 
       // Find the machine in the database by machineName
       const machine = await Machine.findOne({ machineName });
@@ -852,7 +853,7 @@ router.post(
         });
       }
 
-      console.log(`[services route] Machine found: ${machine.publicId}`);
+      logger.info(`[services route] Machine found: ${machine.publicId}`);
 
       // Check if machine has servicesArray
       if (!machine.servicesArray || machine.servicesArray.length === 0) {
@@ -880,7 +881,7 @@ router.post(
         });
       }
 
-      console.log(`[services route] Found service: ${service.name}`);
+      logger.info(`[services route] Found service: ${service.name}`);
 
       // Execute git checkout
       const result = await gitCheckout(name, branchName);
@@ -897,7 +898,7 @@ router.post(
         });
       }
 
-      console.log(
+      logger.info(
         `[services route] Successfully checked out branch: ${branchName}`
       );
       res.json({
@@ -907,7 +908,7 @@ router.post(
         stderr: result.stderr,
       });
     } catch (error: any) {
-      console.error(
+      logger.error(
         "[services route] Unhandled error in POST /services/git/checkout/:name/:branchName:",
         error
       );
@@ -932,12 +933,12 @@ router.post(
 router.delete(
   "/git/delete-branch/:name/:branchName",
   async (req: Request, res: Response) => {
-    console.log(
+    logger.info(
       "[services route] DELETE /services/git/delete-branch/:name/:branchName - Request received"
     );
     try {
       const { name, branchName } = req.params;
-      console.log(
+      logger.info(
         `[services route] Delete branch "${branchName}" requested for service: ${name}`
       );
 
@@ -958,7 +959,7 @@ router.delete(
 
       // Get current machine info
       const { machineName } = getMachineInfo();
-      console.log(`[services route] Machine name from OS: ${machineName}`);
+      logger.info(`[services route] Machine name from OS: ${machineName}`);
 
       // Find the machine in the database by machineName
       const machine = await Machine.findOne({ machineName });
@@ -974,7 +975,7 @@ router.delete(
         });
       }
 
-      console.log(`[services route] Machine found: ${machine.publicId}`);
+      logger.info(`[services route] Machine found: ${machine.publicId}`);
 
       // Check if machine has servicesArray
       if (!machine.servicesArray || machine.servicesArray.length === 0) {
@@ -1002,7 +1003,7 @@ router.delete(
         });
       }
 
-      console.log(`[services route] Found service: ${service.name}`);
+      logger.info(`[services route] Found service: ${service.name}`);
 
       // Execute git branch -D
       const result = await deleteBranch(name, branchName);
@@ -1019,7 +1020,7 @@ router.delete(
         });
       }
 
-      console.log(
+      logger.info(
         `[services route] Successfully deleted branch: ${branchName}`
       );
       res.json({
@@ -1029,7 +1030,7 @@ router.delete(
         stderr: result.stderr,
       });
     } catch (error: any) {
-      console.error(
+      logger.error(
         "[services route] Unhandled error in DELETE /services/git/delete-branch/:name/:branchName:",
         error
       );
@@ -1052,12 +1053,12 @@ router.delete(
 
 // 🔹 POST /services/npm/:name/:action: Execute npm install or build
 router.post("/npm/:name/:action", async (req: Request, res: Response) => {
-  console.log(
+  logger.info(
     "[services route] POST /services/npm/:name/:action - Request received"
   );
   try {
     const { name, action } = req.params;
-    console.log(
+    logger.info(
       `[services route] npm ${action} requested for service: ${name}`
     );
 
@@ -1091,7 +1092,7 @@ router.post("/npm/:name/:action", async (req: Request, res: Response) => {
 
     // Get current machine info
     const { machineName } = getMachineInfo();
-    console.log(`[services route] Machine name from OS: ${machineName}`);
+    logger.info(`[services route] Machine name from OS: ${machineName}`);
 
     // Find the machine in the database by machineName
     const machine = await Machine.findOne({ machineName });
@@ -1107,7 +1108,7 @@ router.post("/npm/:name/:action", async (req: Request, res: Response) => {
       });
     }
 
-    console.log(`[services route] Machine found: ${machine.publicId}`);
+    logger.info(`[services route] Machine found: ${machine.publicId}`);
 
     // Check if machine has servicesArray
     if (!machine.servicesArray || machine.servicesArray.length === 0) {
@@ -1135,13 +1136,13 @@ router.post("/npm/:name/:action", async (req: Request, res: Response) => {
       });
     }
 
-    console.log(`[services route] Found service: ${service.name}`);
+    logger.info(`[services route] Found service: ${service.name}`);
 
     // Execute npm action
     const result =
       action === "install" ? await npmInstall(name) : await npmBuild(name);
 
-    console.log(
+    logger.info(
       `[services route] npm ${action} completed with status: ${result.status}`
     );
 
@@ -1151,7 +1152,7 @@ router.post("/npm/:name/:action", async (req: Request, res: Response) => {
       failureReason: result.failureReason,
     });
   } catch (error: any) {
-    console.error(
+    logger.error(
       "[services route] Unhandled error in POST /services/npm/:name/:action:",
       error
     );
@@ -1173,7 +1174,7 @@ router.post("/npm/:name/:action", async (req: Request, res: Response) => {
 
 // 🔹 POST /services/make-service-file: Generate systemd service and timer files
 router.post("/make-service-file", async (req: Request, res: Response) => {
-  console.log("[services route] POST /services/make-service-file - Request received");
+  logger.info("[services route] POST /services/make-service-file - Request received");
   try {
     const { filenameServiceTemplate, filenameTimerTemplate, variables } = req.body;
 
@@ -1262,11 +1263,11 @@ router.post("/make-service-file", async (req: Request, res: Response) => {
       port: variables.port,
     };
 
-    console.log(
+    logger.info(
       `[services route] Generating service file for project: ${variables.project_name}`
     );
-    console.log(`[services route] Using template: ${filenameServiceTemplate}`);
-    console.log(
+    logger.info(`[services route] Using template: ${filenameServiceTemplate}`);
+    logger.info(
       `[services route] Timer template: ${filenameTimerTemplate || "none"}`
     );
 
@@ -1279,7 +1280,7 @@ router.post("/make-service-file", async (req: Request, res: Response) => {
       serviceFilename
     );
 
-    console.log(`[services route] Service file created: ${serviceResult.outputPath}`);
+    logger.info(`[services route] Service file created: ${serviceResult.outputPath}`);
 
     // Generate the timer file if requested
     let timerResult: { outputPath: string; content: string } | null = null;
@@ -1291,7 +1292,7 @@ router.post("/make-service-file", async (req: Request, res: Response) => {
         outputDirectory,
         timerFilename
       );
-      console.log(`[services route] Timer file created: ${timerResult.outputPath}`);
+      logger.info(`[services route] Timer file created: ${timerResult.outputPath}`);
     }
 
     // Build response
@@ -1317,7 +1318,7 @@ router.post("/make-service-file", async (req: Request, res: Response) => {
 
     res.status(201).json(response);
   } catch (error: any) {
-    console.error(
+    logger.error(
       "[services route] Unhandled error in POST /services/make-service-file:",
       error
     );

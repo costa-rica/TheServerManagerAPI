@@ -3,6 +3,7 @@ import path from "path";
 import bcrypt from "bcrypt";
 import { User } from "../models/user";
 import crypto from "crypto";
+import logger from "../config/logger";
 
 export function verifyCheckDirectoryExists(): void {
   // Add directory paths to check (and create if they don't exist)
@@ -14,7 +15,7 @@ export function verifyCheckDirectoryExists(): void {
   pathsToCheck.forEach((dirPath) => {
     if (!fs.existsSync(dirPath)) {
       fs.mkdirSync(dirPath, { recursive: true });
-      console.log(`Created directory: ${dirPath}`);
+      logger.info(`Created directory: ${dirPath}`);
     }
   });
 
@@ -26,14 +27,14 @@ export function verifyCheckDirectoryExists(): void {
     );
     if (!fs.existsSync(statusReportsDir)) {
       fs.mkdirSync(statusReportsDir, { recursive: true });
-      console.log(`Created directory: ${statusReportsDir}`);
+      logger.info(`Created directory: ${statusReportsDir}`);
     }
   }
 }
 
 export async function onStartUpCreateEnvUsers(): Promise<void> {
   if (!process.env.ADMIN_EMAIL) {
-    console.warn("⚠️ No admin emails found in env variables.");
+    logger.warn("⚠️ No admin emails found in env variables.");
     return;
   }
 
@@ -42,7 +43,7 @@ export async function onStartUpCreateEnvUsers(): Promise<void> {
     adminEmails = JSON.parse(process.env.ADMIN_EMAIL);
     if (!Array.isArray(adminEmails)) throw new Error();
   } catch (error) {
-    console.error(
+    logger.error(
       "❌ Error parsing ADMIN_EMAIL. Ensure it's a valid JSON array."
     );
     return;
@@ -53,7 +54,7 @@ export async function onStartUpCreateEnvUsers(): Promise<void> {
       const existingUser = await User.findOne({ email });
 
       if (!existingUser) {
-        console.log(`🔹 Creating admin user: ${email}`);
+        logger.info(`🔹 Creating admin user: ${email}`);
 
         const hashedPassword = await bcrypt.hash("test", 10); // Default password, should be changed later.
 
@@ -64,12 +65,12 @@ export async function onStartUpCreateEnvUsers(): Promise<void> {
           password: hashedPassword,
         });
 
-        console.log(`✅ Admin user created: ${email}`);
+        logger.info(`✅ Admin user created: ${email}`);
       } else {
-        console.log(`ℹ️  User already exists: ${email}`);
+        logger.info(`ℹ️  User already exists: ${email}`);
       }
     } catch (err) {
-      console.error(`❌ Error creating admin user (${email}):`, err);
+      logger.error(`❌ Error creating admin user (${email}):`, err);
     }
   }
 }

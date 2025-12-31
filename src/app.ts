@@ -1,4 +1,5 @@
 import express from "express";
+import logger from "./config/logger";
 
 const app = express();
 import path from "path";
@@ -24,6 +25,8 @@ import registrarRouter from "./routes/registrar";
 
 // Verify and create necessary directories first
 verifyCheckDirectoryExists();
+
+// logger.info("TEST: app.ts loaded - monkey-patching test");
 // Middleware configuration (must be BEFORE routes)
 app.use(express.json()); // Parse JSON request bodies
 app.use(express.urlencoded({ extended: false })); // Parse URL-encoded bodies
@@ -56,9 +59,9 @@ async function initializeApp() {
     // Run startup functions after database is ready
     await onStartUpCreateEnvUsers();
 
-    console.log("✅ App initialization completed");
+    logger.info("✅ App initialization completed");
   } catch (err) {
-    console.error("❌ App initialization failed:", err);
+    logger.error("❌ App initialization failed:", err);
     process.exit(1);
   }
 }

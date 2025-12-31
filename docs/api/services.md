@@ -506,7 +506,7 @@ Content-Type: text/plain
 
 ## GET /services/git/:name
 
-Get the list of local branches for a service's git repository.
+Get the list of local branches, remote branches, and current branch for a service's git repository.
 
 **Authentication:** Required (JWT token)
 
@@ -530,16 +530,18 @@ curl --location 'http://localhost:3000/services/git/PersonalWeb03%20API' \
 ```json
 {
   "gitBranchesLocalArray": ["main", "dev", "dev_07", "feature/new-ui"],
+  "gitBranchesRemoteArray": ["main", "dev", "production"],
   "currentBranch": "dev_07"
 }
 ```
 
 **Response Fields:**
 
-| Field                   | Type     | Description                           |
-| ----------------------- | -------- | ------------------------------------- |
-| `gitBranchesLocalArray` | String[] | Array of local branch names           |
-| `currentBranch`         | String   | The currently checked out branch name |
+| Field                    | Type     | Description                                                    |
+| ------------------------ | -------- | -------------------------------------------------------------- |
+| `gitBranchesLocalArray`  | String[] | Array of local branch names                                    |
+| `gitBranchesRemoteArray` | String[] | Array of remote branch names (with "origin/" prefix removed)   |
+| `currentBranch`          | String   | The currently checked out branch name                          |
 
 **Error Response (400 Bad Request - Not Production):**
 
@@ -586,15 +588,17 @@ curl --location 'http://localhost:3000/services/git/PersonalWeb03%20API' \
 - Executes `git branch` in the project directory to get local branches
 - Removes asterisk (\*) from currently checked out branch in the list
 - Executes `git branch --show-current` to get the currently checked out branch
-- Returns array of local branch names and current branch name
+- Executes `git branch -r` to get remote branches (filters out HEAD pointer, removes "origin/" prefix)
+- Returns arrays of local and remote branch names along with current branch name
 - Only works when `NODE_ENV=production` or `NODE_ENV=testing` on Ubuntu servers
 
 **Notes:**
 
 - The `name` parameter must match the `name` field in servicesArray
 - URL encode the service name if it contains spaces
-- Returns local branches only (branches in the local repository)
-- Reflects branch deletions immediately when branches are deleted locally
+- Returns both local branches (branches in the local repository) and remote branches (from origin)
+- Remote branch names have the "origin/" prefix removed for cleaner display
+- Reflects branch changes immediately when branches are created, deleted, or pushed locally/remotely
 
 ---
 

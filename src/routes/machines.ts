@@ -3,7 +3,11 @@ import type { Request, Response } from "express";
 import { randomUUID } from "crypto";
 import { Machine } from "../models/machine";
 import { checkBodyReturnMissing } from "../modules/common";
-import { getMachineInfo, getServicesNameAndValidateServiceFile, buildServicesArrayFromNickSystemctl } from "../modules/machines";
+import {
+  getMachineInfo,
+  getServicesNameAndValidateServiceFile,
+  buildServicesArrayFromNickSystemctl,
+} from "../modules/machines";
 import { authenticateToken } from "../modules/authentication";
 
 const router = express.Router();
@@ -19,45 +23,58 @@ router.get("/name", authenticateToken, (req: Request, res: Response) => {
       error: {
         code: "INTERNAL_ERROR",
         message: "Failed to retrieve machine information",
-        details: process.env.NODE_ENV !== 'production' ? error.message : undefined,
-        status: 500
-      }
+        details:
+          process.env.NODE_ENV !== "production" ? error.message : undefined,
+        status: 500,
+      },
     });
   }
 });
 
 // 🔹 GET /machines/check-nick-systemctl: Get services array from nick-systemctl.csv
-router.get("/check-nick-systemctl", authenticateToken, async (req: Request, res: Response) => {
-  try {
-    console.log("[machines.ts] GET /machines/check-nick-systemctl - Building services array from nick-systemctl.csv");
+router.get(
+  "/check-nick-systemctl",
+  authenticateToken,
+  async (req: Request, res: Response) => {
+    try {
+      console.log(
+        "[machines.ts] GET /machines/check-nick-systemctl - Building services array from nick-systemctl.csv"
+      );
 
-    const servicesArray = await buildServicesArrayFromNickSystemctl();
+      const servicesArray = await buildServicesArrayFromNickSystemctl();
 
-    console.log(`[machines.ts] Successfully built services array with ${servicesArray.length} service(s)`);
+      console.log(
+        `[machines.ts] Successfully built services array with ${servicesArray.length} service(s)`
+      );
 
-    res.status(200).json({
-      message: "Services array built successfully from nick-systemctl.csv",
-      servicesArray
-    });
-  } catch (error: any) {
-    console.error("[machines.ts] Error in /machines/check-nick-systemctl:", error);
+      res.status(200).json({
+        message: "Services array built successfully from nick-systemctl.csv",
+        servicesArray,
+      });
+    } catch (error: any) {
+      console.error(
+        "[machines.ts] Error in /machines/check-nick-systemctl:",
+        error
+      );
 
-    // If the error has the standardized format, return it directly
-    if (error.error) {
-      return res.status(error.error.status || 500).json(error);
-    }
-
-    // Otherwise, return a generic internal error
-    res.status(500).json({
-      error: {
-        code: "INTERNAL_ERROR",
-        message: "Failed to build services array",
-        details: process.env.NODE_ENV !== 'production' ? error.message : undefined,
-        status: 500
+      // If the error has the standardized format, return it directly
+      if (error.error) {
+        return res.status(error.error.status || 500).json(error);
       }
-    });
+
+      // Otherwise, return a generic internal error
+      res.status(500).json({
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Failed to build services array",
+          details:
+            process.env.NODE_ENV !== "production" ? error.message : undefined,
+          status: 500,
+        },
+      });
+    }
   }
-});
+);
 
 // 🔹 GET /machines: Get all machines
 router.get("/", authenticateToken, async (req, res) => {
@@ -77,11 +94,12 @@ router.get("/", authenticateToken, async (req, res) => {
 // 🔹 POST /machines: Create a new machine
 router.post("/", authenticateToken, async (req: Request, res: Response) => {
   try {
-    const { urlFor404Api, nginxStoragePathOptions, servicesArray } = req.body;
+    const { urlApiForTsmNetwork, nginxStoragePathOptions, servicesArray } =
+      req.body;
 
     // Validate required fields
     const { isValid, missingKeys } = checkBodyReturnMissing(req.body, [
-      "urlFor404Api",
+      "urlApiForTsmNetwork",
       "nginxStoragePathOptions",
     ]);
 
@@ -91,8 +109,8 @@ router.post("/", authenticateToken, async (req: Request, res: Response) => {
           code: "VALIDATION_ERROR",
           message: "Request validation failed",
           details: `Missing required fields: ${missingKeys.join(", ")}`,
-          status: 400
-        }
+          status: 400,
+        },
       });
     }
 
@@ -103,8 +121,8 @@ router.post("/", authenticateToken, async (req: Request, res: Response) => {
           code: "VALIDATION_ERROR",
           message: "Request validation failed",
           details: "nginxStoragePathOptions must be an array of strings",
-          status: 400
-        }
+          status: 400,
+        },
       });
     }
 
@@ -116,8 +134,8 @@ router.post("/", authenticateToken, async (req: Request, res: Response) => {
             code: "VALIDATION_ERROR",
             message: "Request validation failed",
             details: "servicesArray must be an array",
-            status: 400
-          }
+            status: 400,
+          },
         });
       }
 
@@ -132,9 +150,11 @@ router.post("/", authenticateToken, async (req: Request, res: Response) => {
             error: {
               code: "VALIDATION_ERROR",
               message: "Request validation failed",
-              details: `Service at index ${i} is missing required fields: ${serviceMissingKeys.join(", ")}`,
-              status: 400
-            }
+              details: `Service at index ${i} is missing required fields: ${serviceMissingKeys.join(
+                ", "
+              )}`,
+              status: 400,
+            },
           });
         }
 
@@ -148,8 +168,8 @@ router.post("/", authenticateToken, async (req: Request, res: Response) => {
               code: "VALIDATION_ERROR",
               message: "Request validation failed",
               details: `Service at index ${i}: filename and pathToLogs must be strings`,
-              status: 400
-            }
+              status: 400,
+            },
           });
         }
 
@@ -163,8 +183,8 @@ router.post("/", authenticateToken, async (req: Request, res: Response) => {
               code: "VALIDATION_ERROR",
               message: "Request validation failed",
               details: `Service at index ${i}: filenameTimer must be a string`,
-              status: 400
-            }
+              status: 400,
+            },
           });
         }
 
@@ -174,8 +194,8 @@ router.post("/", authenticateToken, async (req: Request, res: Response) => {
               code: "VALIDATION_ERROR",
               message: "Request validation failed",
               details: `Service at index ${i}: port must be a number`,
-              status: 400
-            }
+              status: 400,
+            },
           });
         }
 
@@ -199,7 +219,7 @@ router.post("/", authenticateToken, async (req: Request, res: Response) => {
     const machine = await Machine.create({
       publicId,
       machineName,
-      urlFor404Api,
+      urlApiForTsmNetwork,
       localIpAddress,
       nginxStoragePathOptions,
       servicesArray: servicesArray || [],
@@ -211,7 +231,7 @@ router.post("/", authenticateToken, async (req: Request, res: Response) => {
         publicId: machine.publicId,
         id: machine._id,
         machineName: machine.machineName,
-        urlFor404Api: machine.urlFor404Api,
+        urlApiForTsmNetwork: machine.urlApiForTsmNetwork,
         localIpAddress: machine.localIpAddress,
         nginxStoragePathOptions: machine.nginxStoragePathOptions,
         servicesArray: machine.servicesArray,
@@ -225,215 +245,249 @@ router.post("/", authenticateToken, async (req: Request, res: Response) => {
       error: {
         code: "INTERNAL_ERROR",
         message: "Failed to create machine",
-        details: process.env.NODE_ENV !== 'production' ? error.message : undefined,
-        status: 500
-      }
+        details:
+          process.env.NODE_ENV !== "production" ? error.message : undefined,
+        status: 500,
+      },
     });
   }
 });
 
 // 🔹 PATCH /machines/:publicId: Update a machine
-router.patch("/:publicId", authenticateToken, async (req: Request, res: Response) => {
-  try {
-    const { publicId } = req.params;
-    console.log(`[machines.ts] PATCH /machines/${publicId} - Request received`);
+router.patch(
+  "/:publicId",
+  authenticateToken,
+  async (req: Request, res: Response) => {
+    try {
+      const { publicId } = req.params;
+      console.log(
+        `[machines.ts] PATCH /machines/${publicId} - Request received`
+      );
 
-    const { urlFor404Api, nginxStoragePathOptions, servicesArray } = req.body;
-    console.log(`[machines.ts] PATCH /machines/${publicId} - Body fields: urlFor404Api=${!!urlFor404Api}, nginxStoragePathOptions=${!!nginxStoragePathOptions}, servicesArray=${!!servicesArray}`);
+      const { urlApiForTsmNetwork, nginxStoragePathOptions, servicesArray } =
+        req.body;
+      console.log(
+        `[machines.ts] PATCH /machines/${publicId} - Body fields: urlApiForTsmNetwork=${!!urlApiForTsmNetwork}, nginxStoragePathOptions=${!!nginxStoragePathOptions}, servicesArray=${!!servicesArray}`
+      );
 
-    // Validate publicId parameter
-    if (!publicId || typeof publicId !== "string" || publicId.trim() === "") {
-      return res.status(400).json({
-        error: {
-          code: "VALIDATION_ERROR",
-          message: "Request validation failed",
-          details: "publicId parameter must be a non-empty string",
-          status: 400
-        }
-      });
-    }
-
-    // Find the machine by publicId
-    const machine = await Machine.findOne({ publicId });
-    if (!machine) {
-      return res.status(404).json({
-        error: {
-          code: "NOT_FOUND",
-          message: "Machine not found",
-          status: 404
-        }
-      });
-    }
-
-    // Build update object with only provided fields
-    const updates: any = {};
-
-    // Validate and add urlFor404Api if provided
-    if (urlFor404Api !== undefined) {
-      if (typeof urlFor404Api !== "string" || urlFor404Api.trim() === "") {
+      // Validate publicId parameter
+      if (!publicId || typeof publicId !== "string" || publicId.trim() === "") {
         return res.status(400).json({
           error: {
             code: "VALIDATION_ERROR",
             message: "Request validation failed",
-            details: "urlFor404Api must be a non-empty string",
-            status: 400
-          }
+            details: "publicId parameter must be a non-empty string",
+            status: 400,
+          },
         });
       }
-      updates.urlFor404Api = urlFor404Api;
-    }
 
-    // Validate and add nginxStoragePathOptions if provided
-    if (nginxStoragePathOptions !== undefined) {
-      if (!Array.isArray(nginxStoragePathOptions)) {
-        return res.status(400).json({
+      // Find the machine by publicId
+      const machine = await Machine.findOne({ publicId });
+      if (!machine) {
+        return res.status(404).json({
           error: {
-            code: "VALIDATION_ERROR",
-            message: "Request validation failed",
-            details: "nginxStoragePathOptions must be an array of strings",
-            status: 400
-          }
-        });
-      }
-      updates.nginxStoragePathOptions = nginxStoragePathOptions;
-    }
-
-    // Validate and add servicesArray if provided
-    if (servicesArray !== undefined) {
-      console.log(`[machines.ts] PATCH /machines/${publicId} - Validating servicesArray with ${servicesArray.length} services`);
-
-      if (!Array.isArray(servicesArray)) {
-        return res.status(400).json({
-          error: {
-            code: "VALIDATION_ERROR",
-            message: "Request validation failed",
-            details: "servicesArray must be an array",
-            status: 400
-          }
+            code: "NOT_FOUND",
+            message: "Machine not found",
+            status: 404,
+          },
         });
       }
 
-      // Validate each service object
-      for (let i = 0; i < servicesArray.length; i++) {
-        const service = servicesArray[i];
-        const { isValid: serviceValid, missingKeys: serviceMissingKeys } =
-          checkBodyReturnMissing(service, ["filename", "pathToLogs"]);
+      // Build update object with only provided fields
+      const updates: any = {};
 
-        if (!serviceValid) {
-          return res.status(400).json({
-            error: {
-              code: "VALIDATION_ERROR",
-              message: "Request validation failed",
-              details: `Service at index ${i} is missing required fields: ${serviceMissingKeys.join(", ")}`,
-              status: 400
-            }
-          });
-        }
-
-        // Validate that required fields are strings
+      // Validate and add urlApiForTsmNetwork if provided
+      if (urlApiForTsmNetwork !== undefined) {
         if (
-          typeof service.filename !== "string" ||
-          typeof service.pathToLogs !== "string"
+          typeof urlApiForTsmNetwork !== "string" ||
+          urlApiForTsmNetwork.trim() === ""
         ) {
           return res.status(400).json({
             error: {
               code: "VALIDATION_ERROR",
               message: "Request validation failed",
-              details: `Service at index ${i}: filename and pathToLogs must be strings`,
-              status: 400
-            }
+              details: "urlApiForTsmNetwork must be a non-empty string",
+              status: 400,
+            },
           });
         }
-
-        // Validate optional fields if provided
-        if (
-          service.filenameTimer !== undefined &&
-          typeof service.filenameTimer !== "string"
-        ) {
-          return res.status(400).json({
-            error: {
-              code: "VALIDATION_ERROR",
-              message: "Request validation failed",
-              details: `Service at index ${i}: filenameTimer must be a string`,
-              status: 400
-            }
-          });
-        }
-
-        if (service.port !== undefined && typeof service.port !== "number") {
-          return res.status(400).json({
-            error: {
-              code: "VALIDATION_ERROR",
-              message: "Request validation failed",
-              details: `Service at index ${i}: port must be a number`,
-              status: 400
-            }
-          });
-        }
-
-        // Validate service file and populate name and workingDirectory
-        console.log(`[machines.ts] PATCH /machines/${publicId} - Validating service file ${i}: ${service.filename}`);
-        try {
-          await getServicesNameAndValidateServiceFile(service);
-          console.log(`[machines.ts] PATCH /machines/${publicId} - Service ${i} validation successful: ${service.filename}`);
-        } catch (error: any) {
-          console.log(`[machines.ts] PATCH /machines/${publicId} - Service ${i} validation failed:`, error);
-          // Return the standardized error from the validation function
-          return res.status(error.error?.status || 400).json(error);
-        }
+        updates.urlApiForTsmNetwork = urlApiForTsmNetwork;
       }
 
-      console.log(`[machines.ts] PATCH /machines/${publicId} - All services validated successfully`);
-      updates.servicesArray = servicesArray;
-    }
-
-    // Check if at least one field is being updated
-    if (Object.keys(updates).length === 0) {
-      return res.status(400).json({
-        error: {
-          code: "VALIDATION_ERROR",
-          message: "Request validation failed",
-          details: "At least one field must be provided for update (urlFor404Api, nginxStoragePathOptions, or servicesArray)",
-          status: 400
+      // Validate and add nginxStoragePathOptions if provided
+      if (nginxStoragePathOptions !== undefined) {
+        if (!Array.isArray(nginxStoragePathOptions)) {
+          return res.status(400).json({
+            error: {
+              code: "VALIDATION_ERROR",
+              message: "Request validation failed",
+              details: "nginxStoragePathOptions must be an array of strings",
+              status: 400,
+            },
+          });
         }
+        updates.nginxStoragePathOptions = nginxStoragePathOptions;
+      }
+
+      // Validate and add servicesArray if provided
+      if (servicesArray !== undefined) {
+        console.log(
+          `[machines.ts] PATCH /machines/${publicId} - Validating servicesArray with ${servicesArray.length} services`
+        );
+
+        if (!Array.isArray(servicesArray)) {
+          return res.status(400).json({
+            error: {
+              code: "VALIDATION_ERROR",
+              message: "Request validation failed",
+              details: "servicesArray must be an array",
+              status: 400,
+            },
+          });
+        }
+
+        // Validate each service object
+        for (let i = 0; i < servicesArray.length; i++) {
+          const service = servicesArray[i];
+          const { isValid: serviceValid, missingKeys: serviceMissingKeys } =
+            checkBodyReturnMissing(service, ["filename", "pathToLogs"]);
+
+          if (!serviceValid) {
+            return res.status(400).json({
+              error: {
+                code: "VALIDATION_ERROR",
+                message: "Request validation failed",
+                details: `Service at index ${i} is missing required fields: ${serviceMissingKeys.join(
+                  ", "
+                )}`,
+                status: 400,
+              },
+            });
+          }
+
+          // Validate that required fields are strings
+          if (
+            typeof service.filename !== "string" ||
+            typeof service.pathToLogs !== "string"
+          ) {
+            return res.status(400).json({
+              error: {
+                code: "VALIDATION_ERROR",
+                message: "Request validation failed",
+                details: `Service at index ${i}: filename and pathToLogs must be strings`,
+                status: 400,
+              },
+            });
+          }
+
+          // Validate optional fields if provided
+          if (
+            service.filenameTimer !== undefined &&
+            typeof service.filenameTimer !== "string"
+          ) {
+            return res.status(400).json({
+              error: {
+                code: "VALIDATION_ERROR",
+                message: "Request validation failed",
+                details: `Service at index ${i}: filenameTimer must be a string`,
+                status: 400,
+              },
+            });
+          }
+
+          if (service.port !== undefined && typeof service.port !== "number") {
+            return res.status(400).json({
+              error: {
+                code: "VALIDATION_ERROR",
+                message: "Request validation failed",
+                details: `Service at index ${i}: port must be a number`,
+                status: 400,
+              },
+            });
+          }
+
+          // Validate service file and populate name and workingDirectory
+          console.log(
+            `[machines.ts] PATCH /machines/${publicId} - Validating service file ${i}: ${service.filename}`
+          );
+          try {
+            await getServicesNameAndValidateServiceFile(service);
+            console.log(
+              `[machines.ts] PATCH /machines/${publicId} - Service ${i} validation successful: ${service.filename}`
+            );
+          } catch (error: any) {
+            console.log(
+              `[machines.ts] PATCH /machines/${publicId} - Service ${i} validation failed:`,
+              error
+            );
+            // Return the standardized error from the validation function
+            return res.status(error.error?.status || 400).json(error);
+          }
+        }
+
+        console.log(
+          `[machines.ts] PATCH /machines/${publicId} - All services validated successfully`
+        );
+        updates.servicesArray = servicesArray;
+      }
+
+      // Check if at least one field is being updated
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Request validation failed",
+            details:
+              "At least one field must be provided for update (urlApiForTsmNetwork, nginxStoragePathOptions, or servicesArray)",
+            status: 400,
+          },
+        });
+      }
+
+      // Update the machine
+      console.log(
+        `[machines.ts] PATCH /machines/${publicId} - Updating database with fields: ${Object.keys(
+          updates
+        ).join(", ")}`
+      );
+      const updatedMachine = await Machine.findOneAndUpdate(
+        { publicId },
+        updates,
+        { new: true, runValidators: true }
+      );
+
+      console.log(
+        `[machines.ts] PATCH /machines/${publicId} - Update successful`
+      );
+      res.status(200).json({
+        message: "Machine updated successfully",
+        machine: {
+          publicId: updatedMachine!.publicId,
+          id: updatedMachine!._id,
+          machineName: updatedMachine!.machineName,
+          urlApiForTsmNetwork: updatedMachine!.urlApiForTsmNetwork,
+          localIpAddress: updatedMachine!.localIpAddress,
+          nginxStoragePathOptions: updatedMachine!.nginxStoragePathOptions,
+          servicesArray: updatedMachine!.servicesArray,
+          createdAt: updatedMachine!.createdAt,
+          updatedAt: updatedMachine!.updatedAt,
+        },
+      });
+    } catch (error: any) {
+      console.error("Error updating machine:", error);
+      res.status(500).json({
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Failed to update machine",
+          details:
+            process.env.NODE_ENV !== "production" ? error.message : undefined,
+          status: 500,
+        },
       });
     }
-
-    // Update the machine
-    console.log(`[machines.ts] PATCH /machines/${publicId} - Updating database with fields: ${Object.keys(updates).join(', ')}`);
-    const updatedMachine = await Machine.findOneAndUpdate(
-      { publicId },
-      updates,
-      { new: true, runValidators: true }
-    );
-
-    console.log(`[machines.ts] PATCH /machines/${publicId} - Update successful`);
-    res.status(200).json({
-      message: "Machine updated successfully",
-      machine: {
-        publicId: updatedMachine!.publicId,
-        id: updatedMachine!._id,
-        machineName: updatedMachine!.machineName,
-        urlFor404Api: updatedMachine!.urlFor404Api,
-        localIpAddress: updatedMachine!.localIpAddress,
-        nginxStoragePathOptions: updatedMachine!.nginxStoragePathOptions,
-        servicesArray: updatedMachine!.servicesArray,
-        createdAt: updatedMachine!.createdAt,
-        updatedAt: updatedMachine!.updatedAt,
-      },
-    });
-  } catch (error: any) {
-    console.error("Error updating machine:", error);
-    res.status(500).json({
-      error: {
-        code: "INTERNAL_ERROR",
-        message: "Failed to update machine",
-        details: process.env.NODE_ENV !== 'production' ? error.message : undefined,
-        status: 500
-      }
-    });
   }
-});
+);
 
 // 🔹 DELETE /machines/:publicId: Delete a machine
 router.delete("/:publicId", authenticateToken, async (req, res) => {
@@ -447,8 +501,8 @@ router.delete("/:publicId", authenticateToken, async (req, res) => {
           code: "VALIDATION_ERROR",
           message: "Request validation failed",
           details: "publicId parameter must be a non-empty string",
-          status: 400
-        }
+          status: 400,
+        },
       });
     }
 
@@ -458,8 +512,8 @@ router.delete("/:publicId", authenticateToken, async (req, res) => {
         error: {
           code: "NOT_FOUND",
           message: "Machine not found",
-          status: 404
-        }
+          status: 404,
+        },
       });
     }
 
@@ -468,7 +522,7 @@ router.delete("/:publicId", authenticateToken, async (req, res) => {
       deletedMachine: {
         publicId: machine.publicId,
         machineName: machine.machineName,
-      }
+      },
     });
   } catch (error: any) {
     console.error("Error deleting machine:", error);
@@ -476,9 +530,10 @@ router.delete("/:publicId", authenticateToken, async (req, res) => {
       error: {
         code: "INTERNAL_ERROR",
         message: "Failed to delete machine",
-        details: process.env.NODE_ENV !== 'production' ? error.message : undefined,
-        status: 500
-      }
+        details:
+          process.env.NODE_ENV !== "production" ? error.message : undefined,
+        status: 500,
+      },
     });
   }
 });

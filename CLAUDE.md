@@ -63,7 +63,7 @@ User model includes `isAdmin` boolean for role-based access control.
 **Machine** (src/models/machine.ts):
 
 - Represents a physical/virtual server in the network
-- Tracks `machineName`, `urlFor404Api`, `localIpAddress`, `userHomeDir`, `nginxStoragePathOptions`
+- Tracks `machineName`, `urlApiForTsmNetwork`, `localIpAddress`, `userHomeDir`, `nginxStoragePathOptions`
 - Referenced by NginxFile to link apps to their host servers
 
 **NginxFile** (src/models/nginxFile.ts):
@@ -166,9 +166,9 @@ res.status(404).json({
   error: {
     code: "MACHINE_NOT_FOUND",
     message: "Machine not found",
-    details: process.env.NODE_ENV === 'development' ? error.message : undefined,
-    status: 404
-  }
+    details: process.env.NODE_ENV === "development" ? error.message : undefined,
+    status: 404,
+  },
 });
 
 // Validation errors
@@ -179,9 +179,9 @@ res.status(400).json({
     status: 400,
     details: [
       { field: "email", message: "Invalid email format" },
-      { field: "port", message: "Must be a number" }
-    ]
-  }
+      { field: "port", message: "Must be a number" },
+    ],
+  },
 });
 ```
 

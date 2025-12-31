@@ -20,7 +20,7 @@ There will be a servicesArray passed in the body of the request. Each element in
 
 ### PATCH /machines/{publicId}
 
-This will allow for updating the machines collection properties. We can enter nginxStoragePathOptions (array) , urlFor404Api, and servicesArray. The machineName will not be updatable.
+This will allow for updating the machines collection properties. We can enter nginxStoragePathOptions (array) , urlApiForTsmNetwork, and servicesArray. The machineName will not be updatable.
 
 ## Services Router
 

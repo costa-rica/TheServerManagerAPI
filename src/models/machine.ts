@@ -11,7 +11,7 @@ const machineSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    urlFor404Api: {
+    urlApiForTsmNetwork: {
       type: String,
       required: true,
     },

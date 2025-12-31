@@ -38,7 +38,7 @@ Represents a physical or virtual server in the network.
 | ---------------------------------- | -------- | -------- | ------ | ------------------------------------------------- |
 | `publicId`                         | String   | Yes      | Yes    | Public identifier for the machine                 |
 | `machineName`                      | String   | Yes      | No     | Human-readable name for the server                |
-| `urlFor404Api`                     | String   | Yes      | No     | API endpoint for 404 error handling               |
+| `urlApiForTsmNetwork`              | String   | Yes      | No     | API endpoint for 404 error handling               |
 | `localIpAddress`                   | String   | Yes      | No     | Local IP address of the server                    |
 | `nginxStoragePathOptions`          | String[] | No       | No     | Array of available nginx storage paths            |
 | `servicesArray`                    | Object[] | No       | No     | Array of systemd services running on this machine |

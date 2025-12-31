@@ -19,6 +19,12 @@ import {
   deleteBranch,
 } from "../modules/git";
 import { npmInstall, npmBuild } from "../modules/npm";
+import {
+  generateServiceFile,
+  VALID_SERVICE_TEMPLATES,
+  VALID_TIMER_TEMPLATES,
+  type TemplateVariables,
+} from "../modules/systemd";
 
 const router = express.Router();
 
@@ -1153,6 +1159,172 @@ router.post("/npm/:name/:action", async (req: Request, res: Response) => {
       error: {
         code: "INTERNAL_ERROR",
         message: "Failed to execute npm command",
+        details:
+          process.env.NODE_ENV !== "production"
+            ? error instanceof Error
+              ? error.message
+              : "Unknown error"
+            : undefined,
+        status: 500,
+      },
+    });
+  }
+});
+
+// 🔹 POST /services/make-service-file: Generate systemd service and timer files
+router.post("/make-service-file", async (req: Request, res: Response) => {
+  console.log("[services route] POST /services/make-service-file - Request received");
+  try {
+    const { filenameServiceTemplate, filenameTimerTemplate, variables } = req.body;
+
+    // Validate required fields
+    if (!filenameServiceTemplate) {
+      return res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Request validation failed",
+          details: "Missing required field: filenameServiceTemplate",
+          status: 400,
+        },
+      });
+    }
+
+    if (!variables || typeof variables !== "object") {
+      return res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Request validation failed",
+          details: "Missing or invalid 'variables' object",
+          status: 400,
+        },
+      });
+    }
+
+    if (!variables.project_name) {
+      return res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Request validation failed",
+          details: "Missing required field in variables: project_name",
+          status: 400,
+        },
+      });
+    }
+
+    // Validate filenameServiceTemplate is a valid template
+    if (!VALID_SERVICE_TEMPLATES.includes(filenameServiceTemplate as any)) {
+      return res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid service template",
+          details: `filenameServiceTemplate must be one of: ${VALID_SERVICE_TEMPLATES.join(", ")}`,
+          status: 400,
+        },
+      });
+    }
+
+    // Validate filenameTimerTemplate if provided
+    if (
+      filenameTimerTemplate &&
+      !VALID_TIMER_TEMPLATES.includes(filenameTimerTemplate as any)
+    ) {
+      return res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid timer template",
+          details: `filenameTimerTemplate must be one of: ${VALID_TIMER_TEMPLATES.join(", ")}`,
+          status: 400,
+        },
+      });
+    }
+
+    // Get PATH_TO_SERVICE_FILES from environment
+    const outputDirectory = process.env.PATH_TO_SERVICE_FILES;
+    if (!outputDirectory) {
+      return res.status(500).json({
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Server configuration error",
+          details: "PATH_TO_SERVICE_FILES environment variable is not set",
+          status: 500,
+        },
+      });
+    }
+
+    // Auto-generate project_name_lowercase from project_name
+    const project_name_lowercase = variables.project_name.toLowerCase();
+
+    // Prepare complete variables object
+    const completeVariables: TemplateVariables = {
+      project_name: variables.project_name,
+      project_name_lowercase,
+      python_env_name: variables.python_env_name,
+      port: variables.port,
+    };
+
+    console.log(
+      `[services route] Generating service file for project: ${variables.project_name}`
+    );
+    console.log(`[services route] Using template: ${filenameServiceTemplate}`);
+    console.log(
+      `[services route] Timer template: ${filenameTimerTemplate || "none"}`
+    );
+
+    // Generate the service file
+    const serviceFilename = `${project_name_lowercase}.service`;
+    const serviceResult = await generateServiceFile(
+      filenameServiceTemplate,
+      completeVariables,
+      outputDirectory,
+      serviceFilename
+    );
+
+    console.log(`[services route] Service file created: ${serviceResult.outputPath}`);
+
+    // Generate the timer file if requested
+    let timerResult: { outputPath: string; content: string } | null = null;
+    if (filenameTimerTemplate) {
+      const timerFilename = `${project_name_lowercase}.timer`;
+      timerResult = await generateServiceFile(
+        filenameTimerTemplate,
+        completeVariables,
+        outputDirectory,
+        timerFilename
+      );
+      console.log(`[services route] Timer file created: ${timerResult.outputPath}`);
+    }
+
+    // Build response
+    const response: any = {
+      message: "Service file(s) created successfully",
+      service: {
+        template: filenameServiceTemplate,
+        outputPath: serviceResult.outputPath,
+        filename: serviceFilename,
+        content: serviceResult.content,
+      },
+      variablesApplied: completeVariables,
+    };
+
+    if (timerResult) {
+      response.timer = {
+        template: filenameTimerTemplate,
+        outputPath: timerResult.outputPath,
+        filename: `${project_name_lowercase}.timer`,
+        content: timerResult.content,
+      };
+    }
+
+    res.status(201).json(response);
+  } catch (error: any) {
+    console.error(
+      "[services route] Unhandled error in POST /services/make-service-file:",
+      error
+    );
+    res.status(500).json({
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to generate service file(s)",
         details:
           process.env.NODE_ENV !== "production"
             ? error instanceof Error

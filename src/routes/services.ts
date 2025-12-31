@@ -17,6 +17,10 @@ import {
   getCurrentBranch,
   deleteBranch,
 } from "../modules/git";
+import {
+  npmInstall,
+  npmBuild,
+} from "../modules/npm";
 
 const router = express.Router();
 
@@ -822,6 +826,108 @@ router.delete("/git/delete-branch/:name/:branchName", async (req: Request, res: 
       error: {
         code: "INTERNAL_ERROR",
         message: "Failed to delete branch",
+        details: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.message : "Unknown error") : undefined,
+        status: 500
+      }
+    });
+  }
+});
+
+// 🔹 POST /services/npm/:name/:action: Execute npm install or build
+router.post("/npm/:name/:action", async (req: Request, res: Response) => {
+  console.log("[services route] POST /services/npm/:name/:action - Request received");
+  try {
+    const { name, action } = req.params;
+    console.log(`[services route] npm ${action} requested for service: ${name}`);
+
+    // Check if running in production/testing/Ubuntu environment
+    if (process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "testing") {
+      return res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "This endpoint only works in production or testing environment on Ubuntu OS",
+          status: 400
+        }
+      });
+    }
+
+    // Validate action
+    const validActions = ["install", "build"];
+    if (!validActions.includes(action)) {
+      return res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid action",
+          details: `Invalid action. Must be one of: ${validActions.join(", ")}`,
+          status: 400
+        }
+      });
+    }
+
+    // Get current machine info
+    const { machineName } = getMachineInfo();
+    console.log(`[services route] Machine name from OS: ${machineName}`);
+
+    // Find the machine in the database by machineName
+    const machine = await Machine.findOne({ machineName });
+
+    if (!machine) {
+      return res.status(404).json({
+        error: {
+          code: "NOT_FOUND",
+          message: "Machine not found in database",
+          details: `Machine with name "${machineName}" not found in database`,
+          status: 404
+        }
+      });
+    }
+
+    console.log(`[services route] Machine found: ${machine.publicId}`);
+
+    // Check if machine has servicesArray
+    if (!machine.servicesArray || machine.servicesArray.length === 0) {
+      return res.status(404).json({
+        error: {
+          code: "NOT_FOUND",
+          message: "No services configured for this machine",
+          details: `Machine "${machineName}" has no services configured in servicesArray`,
+          status: 404
+        }
+      });
+    }
+
+    // Find the service in the servicesArray by name
+    const service = machine.servicesArray.find((s) => s.name === name);
+
+    if (!service) {
+      return res.status(404).json({
+        error: {
+          code: "NOT_FOUND",
+          message: "Service not found",
+          details: `Service with name "${name}" is not configured in this machine's servicesArray`,
+          status: 404
+        }
+      });
+    }
+
+    console.log(`[services route] Found service: ${service.name}`);
+
+    // Execute npm action
+    const result = action === "install" ? await npmInstall(name) : await npmBuild(name);
+
+    console.log(`[services route] npm ${action} completed with status: ${result.status}`);
+
+    res.json({
+      status: result.status,
+      warnings: result.warnings,
+      failureReason: result.failureReason
+    });
+  } catch (error: any) {
+    console.error("[services route] Unhandled error in POST /services/npm/:name/:action:", error);
+    res.status(500).json({
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to execute npm command",
         details: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.message : "Unknown error") : undefined,
         status: 500
       }

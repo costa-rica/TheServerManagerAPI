@@ -871,3 +871,145 @@ curl --location --request DELETE 'http://localhost:3000/services/git/delete-bran
 - This permanently deletes the local branch (does not affect remote branches)
 
 ---
+
+## POST /services/npm/:name/:action
+
+Execute npm install or npm build for a service's project.
+
+**Authentication:** Required (JWT token)
+
+**Environment:** Production/Testing only (Ubuntu OS)
+
+**URL Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `name` | String | Yes | Service name (matches the `name` field in servicesArray) |
+| `action` | String | Yes | npm action to perform: `install` or `build` |
+
+**Sample Request (npm install):**
+
+```bash
+curl --location --request POST 'http://localhost:3000/services/npm/PersonalWeb03%20API/install' \
+--header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+**Sample Request (npm build):**
+
+```bash
+curl --location --request POST 'http://localhost:3000/services/npm/PersonalWeb03%20API/build' \
+--header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+**Success Response (200 OK):**
+
+```json
+{
+  "status": "success",
+  "warnings": "no warnings",
+  "failureReason": null
+}
+```
+
+**Success Response with Warnings (200 OK):**
+
+```json
+{
+  "status": "success",
+  "warnings": "npm WARN deprecated package@1.0.0: This package is deprecated\nnpm WARN peer dependency warning",
+  "failureReason": null
+}
+```
+
+**Failure Response (200 OK):**
+
+```json
+{
+  "status": "fail",
+  "warnings": "npm WARN some warning",
+  "failureReason": "npm ERR! Missing script: \"build\"\nnpm ERR! To see a list of scripts, run:\nnpm ERR!   npm run"
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `status` | String | Status of the npm command: "success" or "fail" |
+| `warnings` | String | Warning messages from npm output, or "no warnings" if none found |
+| `failureReason` | String \| null | Reason for failure if status is "fail", otherwise null |
+
+**Error Response (400 Bad Request - Not Production):**
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "This endpoint only works in production or testing environment on Ubuntu OS",
+    "status": 400
+  }
+}
+```
+
+**Error Response (400 Bad Request - Invalid Action):**
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid action",
+    "details": "Invalid action. Must be one of: install, build",
+    "status": 400
+  }
+}
+```
+
+**Error Response (404 Not Found - Service Not Found):**
+
+```json
+{
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Service not found",
+    "details": "Service with name \"PersonalWeb03 API\" is not configured in this machine's servicesArray",
+    "status": 404
+  }
+}
+```
+
+**Error Response (500 Internal Server Error):**
+
+```json
+{
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "Failed to execute npm command",
+    "details": "Detailed error message (only in development mode)",
+    "status": 500
+  }
+}
+```
+
+**Behavior:**
+
+- Validates that `name` exists in machine's servicesArray
+- Validates that `action` is either "install" or "build"
+- Constructs project path as `/home/nick/applications/{name}`
+- Executes `npm install` or `npm run build` in the project directory
+- Parses stdout and stderr to extract warnings (lines containing "warn", "warning", or "deprecated")
+- Parses error output to extract failure reason on failure
+- Returns status, warnings, and failureReason regardless of success or failure
+- Uses 10MB buffer to handle large npm output
+- Only works when `NODE_ENV=production` or `NODE_ENV=testing` on Ubuntu servers
+
+**Notes:**
+
+- The `name` parameter must match the `name` field in servicesArray
+- URL encode the service name if it contains spaces
+- Response has 200 status code even on npm failure (check `status` field in response body)
+- `install` action runs `npm install` to install dependencies
+- `build` action runs `npm run build` and requires a "build" script in package.json
+- Warnings are extracted from both successful and failed npm operations
+- Large build outputs are supported (up to 10MB)
+
+---

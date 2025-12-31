@@ -1,0 +1,15 @@
+[Unit]
+Description={{PROJECT_NAME}} Services Job
+StartLimitIntervalSec=1d
+StartLimitBurst=5
+
+[Service]
+Type=oneshot
+User=nick
+Group=nick
+WorkingDirectory=/home/nick/applications/{{PROJECT_NAME}}
+Environment="PATH=/home/nick/environments/{{PYTHON_ENV_NAME}}/bin"
+EnvironmentFile=/home/nick/applications/{{PROJECT_NAME}}/.env
+ExecStart=/home/nick/environments/{{PYTHON_ENV_NAME}}/bin/python src/main.py
+Restart=on-failure
+RestartSec=10

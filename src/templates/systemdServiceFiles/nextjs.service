@@ -1,0 +1,23 @@
+[Unit]
+Description={{PROJECT_NAME}} NextJS Application
+After=network.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=app_runner
+Group=nick
+WorkingDirectory=/home/nick/applications/{{PROJECT_NAME}}
+Environment="NODE_ENV=production"
+Environment="PORT={{PORT}}"
+EnvironmentFile=/home/nick/applications/{{PROJECT_NAME}}/.env.local
+Environment="PATH=/usr/bin:/usr/local/bin"
+ExecStart=/usr/bin/npm start
+# For APIs / NextJS
+Restart=on-failure
+RestartSec=5
+
+
+[Install]
+WantedBy=multi-user.target

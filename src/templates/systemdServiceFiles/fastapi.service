@@ -1,0 +1,21 @@
+[Unit]
+Description={{PROJECT_NAME}} FastAPI Application
+After=network.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=app_runner
+Group=nick
+WorkingDirectory=/home/nick/applications/{{PROJECT_NAME}}
+Environment="PATH=/home/nick/environments/{{PYTHON_ENV_NAME}}/bin"
+EnvironmentFile=/home/nick/applications/{{PROJECT_NAME}}/.env
+ExecStart=/home/nick/environments/{{PYTHON_ENV_NAME}}/bin/python -m uvicorn src.main:app --host 0.0.0.0 --port {{PORT}}
+# For APIs
+Restart=on-failure
+RestartSec=5
+
+
+[Install]
+WantedBy=multi-user.target

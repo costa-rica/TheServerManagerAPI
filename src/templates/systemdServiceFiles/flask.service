@@ -1,0 +1,19 @@
+[Unit]
+Description={{PROJECT_NAME}} Flask Application
+After=network.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=app_runner
+Group=nick
+WorkingDirectory=/home/nick/applications/{{PROJECT_NAME}}
+Environment="PATH=/home/nick/environments/{{PYTHON_ENV_NAME}}/bin"
+EnvironmentFile=/home/nick/applications/{{PROJECT_NAME}}/.env
+ExecStart=/home/nick/environments/{{PYTHON_ENV_NAME}}/bin/python -m gunicorn -w 3 -b 0.0.0.0:{{PORT}} --timeout 600 src.app:app
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

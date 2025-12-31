@@ -15,7 +15,12 @@ const BASE_APPLICATIONS_PATH = "/home/nick/applications";
 export async function executeGitCommand(
   projectName: string,
   gitCommand: string
-): Promise<{ success: boolean; stdout: string; stderr: string; error?: string }> {
+): Promise<{
+  success: boolean;
+  stdout: string;
+  stderr: string;
+  error?: string;
+}> {
   const projectPath = path.join(BASE_APPLICATIONS_PATH, projectName);
   const command = `cd "${projectPath}" && git ${gitCommand}`;
 
@@ -46,7 +51,7 @@ export async function executeGitCommand(
  * @param projectName - The service name
  * @returns Promise with array of local branch names
  */
-export async function getRemoteBranches(
+export async function getLocalBranches(
   projectName: string
 ): Promise<{ success: boolean; branches: string[]; error?: string }> {
   console.log(`[git.ts] Getting local branches for: ${projectName}`);
@@ -71,13 +76,46 @@ export async function getRemoteBranches(
 }
 
 /**
+ * Get list of remote branches for a repository
+ * @param projectName - The service name
+ * @returns Promise with array of remote branch names
+ */
+export async function getRemoteBranches(
+  projectName: string
+): Promise<{ success: boolean; branches: string[]; error?: string }> {
+  console.log(`[git.ts] Getting remote branches for: ${projectName}`);
+
+  const result = await executeGitCommand(projectName, "branch -r");
+
+  if (!result.success) {
+    return { success: false, branches: [], error: result.error };
+  }
+
+  // Parse remote branch names from output
+  // Output looks like: "  origin/main\n  origin/dev\n  origin/HEAD -> origin/main\n"
+  const branches = result.stdout
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line && !line.includes("->")) // Filter empty lines and HEAD pointer
+    .map((line) => line.replace(/^origin\//, "")); // Remove "origin/" prefix for cleaner display
+
+  console.log(`[git.ts] Found ${branches.length} remote branches`);
+  return { success: true, branches };
+}
+
+/**
  * Execute git fetch
  * @param projectName - The service name
  * @returns Promise with success status
  */
 export async function gitFetch(
   projectName: string
-): Promise<{ success: boolean; stdout: string; stderr: string; error?: string }> {
+): Promise<{
+  success: boolean;
+  stdout: string;
+  stderr: string;
+  error?: string;
+}> {
   console.log(`[git.ts] Executing git fetch for: ${projectName}`);
   return executeGitCommand(projectName, "fetch");
 }
@@ -89,7 +127,12 @@ export async function gitFetch(
  */
 export async function gitPull(
   projectName: string
-): Promise<{ success: boolean; stdout: string; stderr: string; error?: string }> {
+): Promise<{
+  success: boolean;
+  stdout: string;
+  stderr: string;
+  error?: string;
+}> {
   console.log(`[git.ts] Executing git pull for: ${projectName}`);
   return executeGitCommand(projectName, "pull");
 }
@@ -103,8 +146,15 @@ export async function gitPull(
 export async function gitCheckout(
   projectName: string,
   branchName: string
-): Promise<{ success: boolean; stdout: string; stderr: string; error?: string }> {
-  console.log(`[git.ts] Executing git checkout ${branchName} for: ${projectName}`);
+): Promise<{
+  success: boolean;
+  stdout: string;
+  stderr: string;
+  error?: string;
+}> {
+  console.log(
+    `[git.ts] Executing git checkout ${branchName} for: ${projectName}`
+  );
   return executeGitCommand(projectName, `checkout ${branchName}`);
 }
 
@@ -138,7 +188,12 @@ export async function getCurrentBranch(
 export async function deleteBranch(
   projectName: string,
   branchName: string
-): Promise<{ success: boolean; stdout: string; stderr: string; error?: string }> {
+): Promise<{
+  success: boolean;
+  stdout: string;
+  stderr: string;
+  error?: string;
+}> {
   console.log(`[git.ts] Deleting branch ${branchName} for: ${projectName}`);
   return executeGitCommand(projectName, `branch -D ${branchName}`);
 }

@@ -51,20 +51,20 @@ curl --location 'http://localhost:3000/services' \
 
 **Response Fields:**
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `servicesStatusArray` | Object[] | Array of service status objects |
-| `servicesStatusArray[].name` | String | Human-readable service name from servicesArray |
-| `servicesStatusArray[].filename` | String | Systemd service filename |
-| `servicesStatusArray[].loaded` | String | Full "Loaded:" line from systemctl status showing file path and enabled/disabled state |
-| `servicesStatusArray[].active` | String | Full "Active:" line from systemctl status (e.g., "active (running) since...", "inactive (dead) since...") |
-| `servicesStatusArray[].status` | String | Simplified status: "active", "inactive", "failed", "activating", "deactivating", or "unknown" |
-| `servicesStatusArray[].onStartStatus` | String | Whether service starts on boot: "enabled", "disabled", "static", or "unknown" (parsed from loaded line) |
-| `servicesStatusArray[].timerLoaded` | String | Full "Loaded:" line from timer's systemctl status (optional, only if filenameTimer configured) |
-| `servicesStatusArray[].timerActive` | String | Full "Active:" line from timer's systemctl status (optional, only if filenameTimer configured) |
-| `servicesStatusArray[].timerStatus` | String | Simplified timer status: "active", "inactive", or "unknown" (optional, only if filenameTimer configured) |
-| `servicesStatusArray[].timerOnStartStatus` | String | Whether timer starts on boot: "enabled", "disabled", "static", or "unknown" (optional, only if filenameTimer configured) |
-| `servicesStatusArray[].timerTrigger` | String | Next trigger time (optional, only if filenameTimer configured) |
+| Field                                      | Type     | Description                                                                                                              |
+| ------------------------------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `servicesStatusArray`                      | Object[] | Array of service status objects                                                                                          |
+| `servicesStatusArray[].name`               | String   | Human-readable service name from servicesArray                                                                           |
+| `servicesStatusArray[].filename`           | String   | Systemd service filename                                                                                                 |
+| `servicesStatusArray[].loaded`             | String   | Full "Loaded:" line from systemctl status showing file path and enabled/disabled state                                   |
+| `servicesStatusArray[].active`             | String   | Full "Active:" line from systemctl status (e.g., "active (running) since...", "inactive (dead) since...")                |
+| `servicesStatusArray[].status`             | String   | Simplified status: "active", "inactive", "failed", "activating", "deactivating", or "unknown"                            |
+| `servicesStatusArray[].onStartStatus`      | String   | Whether service starts on boot: "enabled", "disabled", "static", or "unknown" (parsed from loaded line)                  |
+| `servicesStatusArray[].timerLoaded`        | String   | Full "Loaded:" line from timer's systemctl status (optional, only if filenameTimer configured)                           |
+| `servicesStatusArray[].timerActive`        | String   | Full "Active:" line from timer's systemctl status (optional, only if filenameTimer configured)                           |
+| `servicesStatusArray[].timerStatus`        | String   | Simplified timer status: "active", "inactive", or "unknown" (optional, only if filenameTimer configured)                 |
+| `servicesStatusArray[].timerOnStartStatus` | String   | Whether timer starts on boot: "enabled", "disabled", "static", or "unknown" (optional, only if filenameTimer configured) |
+| `servicesStatusArray[].timerTrigger`       | String   | Next trigger time (optional, only if filenameTimer configured)                                                           |
 
 **Error Response (400 Bad Request - Not Production):**
 
@@ -147,10 +147,10 @@ Control a service by starting, stopping, restarting, or performing other systemc
 
 **URL Parameters:**
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `serviceFilename` | String | Yes | Service or timer filename (e.g., "personalweb03-api.service" or "personalweb03-services.timer") |
-| `toggleStatus` | String | Yes | Action to perform: start, stop, restart, reload, enable, disable |
+| Parameter         | Type   | Required | Description                                                                                     |
+| ----------------- | ------ | -------- | ----------------------------------------------------------------------------------------------- |
+| `serviceFilename` | String | Yes      | Service or timer filename (e.g., "personalweb03-api.service" or "personalweb03-services.timer") |
+| `toggleStatus`    | String | Yes      | Action to perform: start, stop, restart, reload, enable, disable                                |
 
 **Sample Request:**
 
@@ -192,19 +192,19 @@ curl --location --request POST 'http://localhost:3000/services/personalweb03-api
 
 **Response Fields:**
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `name` | String | Human-readable service name from servicesArray |
-| `filename` | String | Systemd service filename |
-| `loaded` | String | Full "Loaded:" line from systemctl status showing file path and enabled/disabled state |
-| `active` | String | Full "Active:" line from systemctl status after toggle operation |
-| `status` | String | Simplified status: "active", "inactive", "failed", etc. |
-| `onStartStatus` | String | Whether service starts on boot: "enabled", "disabled", "static", or "unknown" |
-| `timerLoaded` | String | Full "Loaded:" line from timer's systemctl status (optional, only if filenameTimer configured) |
-| `timerActive` | String | Full "Active:" line from timer's systemctl status (optional, only if filenameTimer configured) |
-| `timerStatus` | String | Simplified timer status: "active", "inactive", or "unknown" (optional, only if filenameTimer configured) |
+| Field                | Type   | Description                                                                                                              |
+| -------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `name`               | String | Human-readable service name from servicesArray                                                                           |
+| `filename`           | String | Systemd service filename                                                                                                 |
+| `loaded`             | String | Full "Loaded:" line from systemctl status showing file path and enabled/disabled state                                   |
+| `active`             | String | Full "Active:" line from systemctl status after toggle operation                                                         |
+| `status`             | String | Simplified status: "active", "inactive", "failed", etc.                                                                  |
+| `onStartStatus`      | String | Whether service starts on boot: "enabled", "disabled", "static", or "unknown"                                            |
+| `timerLoaded`        | String | Full "Loaded:" line from timer's systemctl status (optional, only if filenameTimer configured)                           |
+| `timerActive`        | String | Full "Active:" line from timer's systemctl status (optional, only if filenameTimer configured)                           |
+| `timerStatus`        | String | Simplified timer status: "active", "inactive", or "unknown" (optional, only if filenameTimer configured)                 |
 | `timerOnStartStatus` | String | Whether timer starts on boot: "enabled", "disabled", "static", or "unknown" (optional, only if filenameTimer configured) |
-| `timerTrigger` | String | Next trigger time (optional, only if filenameTimer configured) |
+| `timerTrigger`       | String | Next trigger time (optional, only if filenameTimer configured)                                                           |
 
 **Error Response (400 Bad Request - Not Production):**
 
@@ -318,31 +318,37 @@ curl --location --request POST 'http://localhost:3000/services/personalweb03-api
 **Examples:**
 
 Start a service:
+
 ```bash
 POST /services/personalweb03-api.service/start
 ```
 
 Stop a service:
+
 ```bash
 POST /services/personalweb03-api.service/stop
 ```
 
 Restart a service:
+
 ```bash
 POST /services/personalweb03-api.service/restart
 ```
 
 Enable a service to start on boot:
+
 ```bash
 POST /services/personalweb03-api.service/enable
 ```
 
 Start a timer:
+
 ```bash
 POST /services/personalweb03-services.timer/start
 ```
 
 Stop a timer:
+
 ```bash
 POST /services/personalweb03-services.timer/stop
 ```
@@ -350,12 +356,14 @@ POST /services/personalweb03-services.timer/stop
 **Special handling for critical services (tsm-api.service and tsm-nextjs.service):**
 
 Attempting to stop tsm-api (will execute restart instead):
+
 ```bash
 POST /services/tsm-api.service/stop
 # Automatically converted to: sudo systemctl restart tsm-api.service
 ```
 
 Attempting to start tsm-nextjs (will execute restart instead):
+
 ```bash
 POST /services/tsm-nextjs.service/start
 # Automatically converted to: sudo systemctl restart tsm-nextjs.service
@@ -373,9 +381,9 @@ Retrieve the log file for a specific service.
 
 **URL Parameters:**
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `name` | String | Yes | Service name (matches the `name` field in servicesArray) |
+| Parameter | Type   | Required | Description                                              |
+| --------- | ------ | -------- | -------------------------------------------------------- |
+| `name`    | String | Yes      | Service name (matches the `name` field in servicesArray) |
 
 **Sample Request:**
 
@@ -506,9 +514,9 @@ Get the list of local branches for a service's git repository.
 
 **URL Parameters:**
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `name` | String | Yes | Service name (matches the `name` field in servicesArray) |
+| Parameter | Type   | Required | Description                                              |
+| --------- | ------ | -------- | -------------------------------------------------------- |
+| `name`    | String | Yes      | Service name (matches the `name` field in servicesArray) |
 
 **Sample Request:**
 
@@ -521,22 +529,17 @@ curl --location 'http://localhost:3000/services/git/PersonalWeb03%20API' \
 
 ```json
 {
-  "gitBranchesArray": [
-    "main",
-    "dev",
-    "dev_07",
-    "feature/new-ui"
-  ],
+  "gitBranchesLocalArray": ["main", "dev", "dev_07", "feature/new-ui"],
   "currentBranch": "dev_07"
 }
 ```
 
 **Response Fields:**
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `gitBranchesArray` | String[] | Array of local branch names |
-| `currentBranch` | String | The currently checked out branch name |
+| Field                   | Type     | Description                           |
+| ----------------------- | -------- | ------------------------------------- |
+| `gitBranchesLocalArray` | String[] | Array of local branch names           |
+| `currentBranch`         | String   | The currently checked out branch name |
 
 **Error Response (400 Bad Request - Not Production):**
 
@@ -581,7 +584,7 @@ curl --location 'http://localhost:3000/services/git/PersonalWeb03%20API' \
 - Validates that `name` exists in machine's servicesArray
 - Constructs project path as `/home/nick/applications/{name}`
 - Executes `git branch` in the project directory to get local branches
-- Removes asterisk (*) from currently checked out branch in the list
+- Removes asterisk (\*) from currently checked out branch in the list
 - Executes `git branch --show-current` to get the currently checked out branch
 - Returns array of local branch names and current branch name
 - Only works when `NODE_ENV=production` or `NODE_ENV=testing` on Ubuntu servers
@@ -605,10 +608,10 @@ Execute git fetch or pull for a service's repository.
 
 **URL Parameters:**
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `name` | String | Yes | Service name (matches the `name` field in servicesArray) |
-| `action` | String | Yes | Git action to perform: `fetch` or `pull` |
+| Parameter | Type   | Required | Description                                              |
+| --------- | ------ | -------- | -------------------------------------------------------- |
+| `name`    | String | Yes      | Service name (matches the `name` field in servicesArray) |
+| `action`  | String | Yes      | Git action to perform: `fetch` or `pull`                 |
 
 **Sample Request (Fetch):**
 
@@ -637,12 +640,12 @@ curl --location --request POST 'http://localhost:3000/services/git/PersonalWeb03
 
 **Response Fields:**
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `success` | Boolean | Whether the git command succeeded |
-| `action` | String | The action that was executed ("fetch" or "pull") |
-| `stdout` | String | Standard output from the git command |
-| `stderr` | String | Standard error from the git command |
+| Field     | Type    | Description                                      |
+| --------- | ------- | ------------------------------------------------ |
+| `success` | Boolean | Whether the git command succeeded                |
+| `action`  | String  | The action that was executed ("fetch" or "pull") |
+| `stdout`  | String  | Standard output from the git command             |
+| `stderr`  | String  | Standard error from the git command              |
 
 **Error Response (400 Bad Request - Invalid Action):**
 
@@ -711,10 +714,10 @@ Checkout a specific branch in a service's repository.
 
 **URL Parameters:**
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `name` | String | Yes | Service name (matches the `name` field in servicesArray) |
-| `branchName` | String | Yes | Name of the branch to checkout |
+| Parameter    | Type   | Required | Description                                              |
+| ------------ | ------ | -------- | -------------------------------------------------------- |
+| `name`       | String | Yes      | Service name (matches the `name` field in servicesArray) |
+| `branchName` | String | Yes      | Name of the branch to checkout                           |
 
 **Sample Request:**
 
@@ -736,12 +739,12 @@ curl --location --request POST 'http://localhost:3000/services/git/checkout/Pers
 
 **Response Fields:**
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `success` | Boolean | Whether the checkout succeeded |
-| `branchName` | String | The branch that was checked out |
-| `stdout` | String | Standard output from the git command |
-| `stderr` | String | Standard error from the git command |
+| Field        | Type    | Description                          |
+| ------------ | ------- | ------------------------------------ |
+| `success`    | Boolean | Whether the checkout succeeded       |
+| `branchName` | String  | The branch that was checked out      |
+| `stdout`     | String  | Standard output from the git command |
+| `stderr`     | String  | Standard error from the git command  |
 
 **Error Response (404 Not Found - Service Not Found):**
 
@@ -796,10 +799,10 @@ Delete a local branch from a service's repository using `git branch -D` (force d
 
 **URL Parameters:**
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `name` | String | Yes | Service name (matches the `name` field in servicesArray) |
-| `branchName` | String | Yes | Name of the branch to delete |
+| Parameter    | Type   | Required | Description                                              |
+| ------------ | ------ | -------- | -------------------------------------------------------- |
+| `name`       | String | Yes      | Service name (matches the `name` field in servicesArray) |
+| `branchName` | String | Yes      | Name of the branch to delete                             |
 
 **Sample Request:**
 
@@ -821,12 +824,12 @@ curl --location --request DELETE 'http://localhost:3000/services/git/delete-bran
 
 **Response Fields:**
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `success` | Boolean | Whether the branch deletion succeeded |
-| `branchName` | String | The branch that was deleted |
-| `stdout` | String | Standard output from the git command |
-| `stderr` | String | Standard error from the git command |
+| Field        | Type    | Description                           |
+| ------------ | ------- | ------------------------------------- |
+| `success`    | Boolean | Whether the branch deletion succeeded |
+| `branchName` | String  | The branch that was deleted           |
+| `stdout`     | String  | Standard output from the git command  |
+| `stderr`     | String  | Standard error from the git command   |
 
 **Error Response (404 Not Found - Service Not Found):**
 
@@ -883,10 +886,10 @@ Execute npm install or npm build for a service's project.
 
 **URL Parameters:**
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `name` | String | Yes | Service name (matches the `name` field in servicesArray) |
-| `action` | String | Yes | npm action to perform: `install` or `build` |
+| Parameter | Type   | Required | Description                                              |
+| --------- | ------ | -------- | -------------------------------------------------------- |
+| `name`    | String | Yes      | Service name (matches the `name` field in servicesArray) |
+| `action`  | String | Yes      | npm action to perform: `install` or `build`              |
 
 **Sample Request (npm install):**
 
@@ -934,11 +937,11 @@ curl --location --request POST 'http://localhost:3000/services/npm/PersonalWeb03
 
 **Response Fields:**
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `status` | String | Status of the npm command: "success" or "fail" |
-| `warnings` | String | Warning messages from npm output, or "no warnings" if none found |
-| `failureReason` | String \| null | Reason for failure if status is "fail", otherwise null |
+| Field           | Type           | Description                                                      |
+| --------------- | -------------- | ---------------------------------------------------------------- |
+| `status`        | String         | Status of the npm command: "success" or "fail"                   |
+| `warnings`      | String         | Warning messages from npm output, or "no warnings" if none found |
+| `failureReason` | String \| null | Reason for failure if status is "fail", otherwise null           |
 
 **Error Response (400 Bad Request - Not Production):**
 

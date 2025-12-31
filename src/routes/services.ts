@@ -10,6 +10,7 @@ import {
   readLogFile,
 } from "../modules/services";
 import {
+  getLocalBranches,
   getRemoteBranches,
   gitFetch,
   gitPull,
@@ -17,10 +18,7 @@ import {
   getCurrentBranch,
   deleteBranch,
 } from "../modules/git";
-import {
-  npmInstall,
-  npmBuild,
-} from "../modules/npm";
+import { npmInstall, npmBuild } from "../modules/npm";
 
 const router = express.Router();
 
@@ -33,14 +31,20 @@ router.get("/", async (req: Request, res: Response) => {
   try {
     // Check if running in production/testing/Ubuntu environment
     console.log(`[services route] NODE_ENV: ${process.env.NODE_ENV}`);
-    if (process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "testing") {
-      console.warn("[services route] Not in production or testing environment, returning error");
+    if (
+      process.env.NODE_ENV !== "production" &&
+      process.env.NODE_ENV !== "testing"
+    ) {
+      console.warn(
+        "[services route] Not in production or testing environment, returning error"
+      );
       return res.status(400).json({
         error: {
           code: "VALIDATION_ERROR",
-          message: "This endpoint only works in production or testing environment on Ubuntu OS",
-          status: 400
-        }
+          message:
+            "This endpoint only works in production or testing environment on Ubuntu OS",
+          status: 400,
+        },
       });
     }
 
@@ -52,43 +56,60 @@ router.get("/", async (req: Request, res: Response) => {
     const machine = await Machine.findOne({ machineName });
 
     if (!machine) {
-      console.error(`[services route] Machine "${machineName}" not found in database`);
+      console.error(
+        `[services route] Machine "${machineName}" not found in database`
+      );
       return res.status(404).json({
         error: {
           code: "NOT_FOUND",
           message: "Machine not found in database",
           details: `Machine with name "${machineName}" not found in database`,
-          status: 404
-        }
+          status: 404,
+        },
       });
     }
 
     console.log(`[services route] Machine found: ${machine.publicId}`);
-    console.log(`[services route] Machine has ${machine.servicesArray?.length || 0} services`);
+    console.log(
+      `[services route] Machine has ${
+        machine.servicesArray?.length || 0
+      } services`
+    );
 
     // Check if machine has servicesArray
     if (!machine.servicesArray || machine.servicesArray.length === 0) {
-      console.warn(`[services route] Machine "${machineName}" has no services configured`);
+      console.warn(
+        `[services route] Machine "${machineName}" has no services configured`
+      );
       return res.status(404).json({
         error: {
           code: "NOT_FOUND",
           message: "No services configured for this machine",
           details: `Machine "${machineName}" has no services configured in servicesArray`,
-          status: 404
-        }
+          status: 404,
+        },
       });
     }
 
     // Build servicesStatusArray by querying systemctl for each service
-    console.log(`[services route] Starting to query status for ${machine.servicesArray.length} services`);
+    console.log(
+      `[services route] Starting to query status for ${machine.servicesArray.length} services`
+    );
 
     const servicesStatusArray = await Promise.all(
       machine.servicesArray.map(async (service, index) => {
-        console.log(`[services route] Processing service ${index + 1}/${machine.servicesArray.length}: ${service.name} (${service.filename})`);
+        console.log(
+          `[services route] Processing service ${index + 1}/${
+            machine.servicesArray.length
+          }: ${service.name} (${service.filename})`
+        );
         try {
           // Get service status
           const statusObj = await getServiceStatus(service.filename);
-          console.log(`[services route] Got status for ${service.filename}:`, statusObj);
+          console.log(
+            `[services route] Got status for ${service.filename}:`,
+            statusObj
+          );
 
           // Base service object
           const serviceStatus: any = {
@@ -99,16 +120,25 @@ router.get("/", async (req: Request, res: Response) => {
 
           // If service has a timer, get timer status and trigger
           if (service.filenameTimer) {
-            console.log(`[services route] Service has timer: ${service.filenameTimer}`);
+            console.log(
+              `[services route] Service has timer: ${service.filenameTimer}`
+            );
             try {
-              const { timerLoaded, timerActive, timerStatus, timerOnStartStatus, timerTrigger } =
-                await getTimerStatusAndTrigger(service.filenameTimer);
+              const {
+                timerLoaded,
+                timerActive,
+                timerStatus,
+                timerOnStartStatus,
+                timerTrigger,
+              } = await getTimerStatusAndTrigger(service.filenameTimer);
               serviceStatus.timerLoaded = timerLoaded;
               serviceStatus.timerActive = timerActive;
               serviceStatus.timerStatus = timerStatus;
               serviceStatus.timerOnStartStatus = timerOnStartStatus;
               serviceStatus.timerTrigger = timerTrigger;
-              console.log(`[services route] Got timer status for ${service.filenameTimer}`);
+              console.log(
+                `[services route] Got timer status for ${service.filenameTimer}`
+              );
             } catch (error) {
               console.error(
                 `[services route] Error getting timer status for ${service.filenameTimer}:`,
@@ -123,14 +153,19 @@ router.get("/", async (req: Request, res: Response) => {
             }
           }
 
-          console.log(`[services route] Completed processing service: ${service.name}`);
+          console.log(
+            `[services route] Completed processing service: ${service.name}`
+          );
           return serviceStatus;
         } catch (error) {
           console.error(
             `[services route] Error getting status for service ${service.filename}:`,
             error
           );
-          console.error(`[services route] Error stack:`, error instanceof Error ? error.stack : 'N/A');
+          console.error(
+            `[services route] Error stack:`,
+            error instanceof Error ? error.stack : "N/A"
+          );
           // Return service with unknown status if systemctl fails
           return {
             name: service.name,
@@ -144,171 +179,233 @@ router.get("/", async (req: Request, res: Response) => {
       })
     );
 
-    console.log(`[services route] Completed all service queries, returning ${servicesStatusArray.length} results`);
+    console.log(
+      `[services route] Completed all service queries, returning ${servicesStatusArray.length} results`
+    );
     res.json({ servicesStatusArray });
   } catch (error: any) {
     console.error("[services route] Unhandled error in GET /services:", error);
-    console.error("[services route] Error stack:", error instanceof Error ? error.stack : 'N/A');
+    console.error(
+      "[services route] Error stack:",
+      error instanceof Error ? error.stack : "N/A"
+    );
     res.status(500).json({
       error: {
         code: "INTERNAL_ERROR",
         message: "Failed to fetch services status",
-        details: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.message : "Unknown error") : undefined,
-        status: 500
-      }
+        details:
+          process.env.NODE_ENV !== "production"
+            ? error instanceof Error
+              ? error.message
+              : "Unknown error"
+            : undefined,
+        status: 500,
+      },
     });
   }
 });
 
 // 🔹 POST /services/:serviceFilename/:toggleStatus: Toggle service state
-router.post("/:serviceFilename/:toggleStatus", async (req: Request, res: Response) => {
-  console.log("[services route] POST /services/:serviceFilename/:toggleStatus - Request received");
-  try {
-    const { serviceFilename, toggleStatus } = req.params;
-    console.log(`[services route] serviceFilename: ${serviceFilename}, toggleStatus: ${toggleStatus}`);
+router.post(
+  "/:serviceFilename/:toggleStatus",
+  async (req: Request, res: Response) => {
+    console.log(
+      "[services route] POST /services/:serviceFilename/:toggleStatus - Request received"
+    );
+    try {
+      const { serviceFilename, toggleStatus } = req.params;
+      console.log(
+        `[services route] serviceFilename: ${serviceFilename}, toggleStatus: ${toggleStatus}`
+      );
 
-    // Check if running in production/testing/Ubuntu environment
-    if (process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "testing") {
-      return res.status(400).json({
-        error: {
-          code: "VALIDATION_ERROR",
-          message: "This endpoint only works in production or testing environment on Ubuntu OS",
-          status: 400
-        }
-      });
-    }
-
-    // Validate toggleStatus
-    const validActions = ["start", "stop", "restart", "reload", "enable", "disable"];
-    if (!validActions.includes(toggleStatus)) {
-      return res.status(400).json({
-        error: {
-          code: "VALIDATION_ERROR",
-          message: "Invalid toggleStatus",
-          details: `Invalid toggleStatus. Must be one of: ${validActions.join(", ")}`,
-          status: 400
-        }
-      });
-    }
-
-    // Get current machine info
-    const { machineName } = getMachineInfo();
-    console.log(`[services route] Machine name from OS: ${machineName}`);
-
-    // Find the machine in the database by machineName
-    const machine = await Machine.findOne({ machineName });
-
-    if (!machine) {
-      return res.status(404).json({
-        error: {
-          code: "NOT_FOUND",
-          message: "Machine not found in database",
-          details: `Machine with name "${machineName}" not found in database`,
-          status: 404
-        }
-      });
-    }
-
-    console.log(`[services route] Machine found: ${machine.publicId}`);
-
-    // Check if machine has servicesArray
-    if (!machine.servicesArray || machine.servicesArray.length === 0) {
-      return res.status(404).json({
-        error: {
-          code: "NOT_FOUND",
-          message: "No services configured for this machine",
-          details: `Machine "${machineName}" has no services configured in servicesArray`,
-          status: 404
-        }
-      });
-    }
-
-    // Find the service in the servicesArray by filename or filenameTimer
-    const service = machine.servicesArray.find((s) => s.filename === serviceFilename || s.filenameTimer === serviceFilename);
-
-    if (!service) {
-      return res.status(404).json({
-        error: {
-          code: "NOT_FOUND",
-          message: "Service not found",
-          details: `Service with filename "${serviceFilename}" is not configured in this machine's servicesArray`,
-          status: 404
-        }
-      });
-    }
-
-    console.log(`[services route] Found service: ${service.name}`);
-
-    // Special handling for tsm-api.service and tsm-nextjs.service
-    // These critical services should always restart instead of start/stop to ensure proper state
-    let actualToggleAction = toggleStatus;
-    if ((serviceFilename === "tsm-api.service" || serviceFilename === "tsm-nextjs.service") &&
-        (toggleStatus === "start" || toggleStatus === "stop" || toggleStatus === "restart")) {
-      actualToggleAction = "restart";
-      if (toggleStatus !== "restart") {
-        console.log(`[services route] Overriding ${toggleStatus} to restart for ${serviceFilename}`);
+      // Check if running in production/testing/Ubuntu environment
+      if (
+        process.env.NODE_ENV !== "production" &&
+        process.env.NODE_ENV !== "testing"
+      ) {
+        return res.status(400).json({
+          error: {
+            code: "VALIDATION_ERROR",
+            message:
+              "This endpoint only works in production or testing environment on Ubuntu OS",
+            status: 400,
+          },
+        });
       }
-    }
 
-    // Execute the toggle command
-    const toggleResult = await toggleService(actualToggleAction, serviceFilename);
+      // Validate toggleStatus
+      const validActions = [
+        "start",
+        "stop",
+        "restart",
+        "reload",
+        "enable",
+        "disable",
+      ];
+      if (!validActions.includes(toggleStatus)) {
+        return res.status(400).json({
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Invalid toggleStatus",
+            details: `Invalid toggleStatus. Must be one of: ${validActions.join(
+              ", "
+            )}`,
+            status: 400,
+          },
+        });
+      }
 
-    if (!toggleResult.success) {
-      return res.status(500).json({
+      // Get current machine info
+      const { machineName } = getMachineInfo();
+      console.log(`[services route] Machine name from OS: ${machineName}`);
+
+      // Find the machine in the database by machineName
+      const machine = await Machine.findOne({ machineName });
+
+      if (!machine) {
+        return res.status(404).json({
+          error: {
+            code: "NOT_FOUND",
+            message: "Machine not found in database",
+            details: `Machine with name "${machineName}" not found in database`,
+            status: 404,
+          },
+        });
+      }
+
+      console.log(`[services route] Machine found: ${machine.publicId}`);
+
+      // Check if machine has servicesArray
+      if (!machine.servicesArray || machine.servicesArray.length === 0) {
+        return res.status(404).json({
+          error: {
+            code: "NOT_FOUND",
+            message: "No services configured for this machine",
+            details: `Machine "${machineName}" has no services configured in servicesArray`,
+            status: 404,
+          },
+        });
+      }
+
+      // Find the service in the servicesArray by filename or filenameTimer
+      const service = machine.servicesArray.find(
+        (s) =>
+          s.filename === serviceFilename || s.filenameTimer === serviceFilename
+      );
+
+      if (!service) {
+        return res.status(404).json({
+          error: {
+            code: "NOT_FOUND",
+            message: "Service not found",
+            details: `Service with filename "${serviceFilename}" is not configured in this machine's servicesArray`,
+            status: 404,
+          },
+        });
+      }
+
+      console.log(`[services route] Found service: ${service.name}`);
+
+      // Special handling for tsm-api.service and tsm-nextjs.service
+      // These critical services should always restart instead of start/stop to ensure proper state
+      let actualToggleAction = toggleStatus;
+      if (
+        (serviceFilename === "tsm-api.service" ||
+          serviceFilename === "tsm-nextjs.service") &&
+        (toggleStatus === "start" ||
+          toggleStatus === "stop" ||
+          toggleStatus === "restart")
+      ) {
+        actualToggleAction = "restart";
+        if (toggleStatus !== "restart") {
+          console.log(
+            `[services route] Overriding ${toggleStatus} to restart for ${serviceFilename}`
+          );
+        }
+      }
+
+      // Execute the toggle command
+      const toggleResult = await toggleService(
+        actualToggleAction,
+        serviceFilename
+      );
+
+      if (!toggleResult.success) {
+        return res.status(500).json({
+          error: {
+            code: "INTERNAL_ERROR",
+            message: `Failed to ${actualToggleAction} service`,
+            details:
+              process.env.NODE_ENV !== "production"
+                ? toggleResult.error
+                : undefined,
+            status: 500,
+          },
+        });
+      }
+
+      console.log(
+        `[services route] Successfully executed ${actualToggleAction} on ${serviceFilename}`
+      );
+
+      // Get updated service status
+      const statusObj = await getServiceStatus(serviceFilename);
+
+      // Build response object
+      const serviceStatus: any = {
+        name: service.name,
+        filename: service.filename,
+        ...statusObj, // Includes loaded, active, status, onStartStatus
+      };
+
+      // If service has a timer, get timer status and trigger
+      if (service.filenameTimer) {
+        try {
+          const {
+            timerLoaded,
+            timerActive,
+            timerStatus,
+            timerOnStartStatus,
+            timerTrigger,
+          } = await getTimerStatusAndTrigger(service.filenameTimer);
+          serviceStatus.timerLoaded = timerLoaded;
+          serviceStatus.timerActive = timerActive;
+          serviceStatus.timerStatus = timerStatus;
+          serviceStatus.timerOnStartStatus = timerOnStartStatus;
+          serviceStatus.timerTrigger = timerTrigger;
+        } catch (error) {
+          console.error(`[services route] Error getting timer status:`, error);
+          serviceStatus.timerLoaded = "unknown";
+          serviceStatus.timerActive = "unknown";
+          serviceStatus.timerStatus = "unknown";
+          serviceStatus.timerOnStartStatus = "unknown";
+          serviceStatus.timerTrigger = "unknown";
+        }
+      }
+
+      console.log(`[services route] Returning updated service status`);
+      res.json(serviceStatus);
+    } catch (error: any) {
+      console.error(
+        "[services route] Unhandled error in POST /services/:serviceFilename/:toggleStatus:",
+        error
+      );
+      res.status(500).json({
         error: {
           code: "INTERNAL_ERROR",
-          message: `Failed to ${actualToggleAction} service`,
-          details: process.env.NODE_ENV !== 'production' ? toggleResult.error : undefined,
-          status: 500
-        }
+          message: "Failed to toggle service",
+          details:
+            process.env.NODE_ENV !== "production"
+              ? error instanceof Error
+                ? error.message
+                : "Unknown error"
+              : undefined,
+          status: 500,
+        },
       });
     }
-
-    console.log(`[services route] Successfully executed ${actualToggleAction} on ${serviceFilename}`);
-
-    // Get updated service status
-    const statusObj = await getServiceStatus(serviceFilename);
-
-    // Build response object
-    const serviceStatus: any = {
-      name: service.name,
-      filename: service.filename,
-      ...statusObj, // Includes loaded, active, status, onStartStatus
-    };
-
-    // If service has a timer, get timer status and trigger
-    if (service.filenameTimer) {
-      try {
-        const { timerLoaded, timerActive, timerStatus, timerOnStartStatus, timerTrigger } = await getTimerStatusAndTrigger(service.filenameTimer);
-        serviceStatus.timerLoaded = timerLoaded;
-        serviceStatus.timerActive = timerActive;
-        serviceStatus.timerStatus = timerStatus;
-        serviceStatus.timerOnStartStatus = timerOnStartStatus;
-        serviceStatus.timerTrigger = timerTrigger;
-      } catch (error) {
-        console.error(`[services route] Error getting timer status:`, error);
-        serviceStatus.timerLoaded = "unknown";
-        serviceStatus.timerActive = "unknown";
-        serviceStatus.timerStatus = "unknown";
-        serviceStatus.timerOnStartStatus = "unknown";
-        serviceStatus.timerTrigger = "unknown";
-      }
-    }
-
-    console.log(`[services route] Returning updated service status`);
-    res.json(serviceStatus);
-  } catch (error: any) {
-    console.error("[services route] Unhandled error in POST /services/:serviceFilename/:toggleStatus:", error);
-    res.status(500).json({
-      error: {
-        code: "INTERNAL_ERROR",
-        message: "Failed to toggle service",
-        details: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.message : "Unknown error") : undefined,
-        status: 500
-      }
-    });
   }
-});
+);
 
 // 🔹 GET /services/logs/:name: Get log file for a service
 router.get("/logs/:name", async (req: Request, res: Response) => {
@@ -318,13 +415,17 @@ router.get("/logs/:name", async (req: Request, res: Response) => {
     console.log(`[services route] Log requested for service name: ${name}`);
 
     // Check if running in production/testing/Ubuntu environment
-    if (process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "testing") {
+    if (
+      process.env.NODE_ENV !== "production" &&
+      process.env.NODE_ENV !== "testing"
+    ) {
       return res.status(400).json({
         error: {
           code: "VALIDATION_ERROR",
-          message: "This endpoint only works in production or testing environment on Ubuntu OS",
-          status: 400
-        }
+          message:
+            "This endpoint only works in production or testing environment on Ubuntu OS",
+          status: 400,
+        },
       });
     }
 
@@ -341,8 +442,8 @@ router.get("/logs/:name", async (req: Request, res: Response) => {
           code: "NOT_FOUND",
           message: "Machine not found in database",
           details: `Machine with name "${machineName}" not found in database`,
-          status: 404
-        }
+          status: 404,
+        },
       });
     }
 
@@ -355,8 +456,8 @@ router.get("/logs/:name", async (req: Request, res: Response) => {
           code: "NOT_FOUND",
           message: "No services configured for this machine",
           details: `Machine "${machineName}" has no services configured in servicesArray`,
-          status: 404
-        }
+          status: 404,
+        },
       });
     }
 
@@ -369,12 +470,14 @@ router.get("/logs/:name", async (req: Request, res: Response) => {
           code: "NOT_FOUND",
           message: "Service not found",
           details: `Service with name "${name}" is not configured in this machine's servicesArray`,
-          status: 404
-        }
+          status: 404,
+        },
       });
     }
 
-    console.log(`[services route] Found service: ${service.name}, pathToLogs: ${service.pathToLogs}`);
+    console.log(
+      `[services route] Found service: ${service.name}, pathToLogs: ${service.pathToLogs}`
+    );
 
     // Read the log file
     const logResult = await readLogFile(service.pathToLogs, name);
@@ -385,8 +488,8 @@ router.get("/logs/:name", async (req: Request, res: Response) => {
           code: "NOT_FOUND",
           message: "Log file not found or could not be read",
           details: logResult.error,
-          status: 404
-        }
+          status: 404,
+        },
       });
     }
 
@@ -396,14 +499,22 @@ router.get("/logs/:name", async (req: Request, res: Response) => {
     res.set("Content-Type", "text/plain");
     res.send(logResult.content);
   } catch (error: any) {
-    console.error("[services route] Unhandled error in GET /services/logs/:name:", error);
+    console.error(
+      "[services route] Unhandled error in GET /services/logs/:name:",
+      error
+    );
     res.status(500).json({
       error: {
         code: "INTERNAL_ERROR",
         message: "Failed to read log file",
-        details: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.message : "Unknown error") : undefined,
-        status: 500
-      }
+        details:
+          process.env.NODE_ENV !== "production"
+            ? error instanceof Error
+              ? error.message
+              : "Unknown error"
+            : undefined,
+        status: 500,
+      },
     });
   }
 });
@@ -416,13 +527,17 @@ router.get("/git/:name", async (req: Request, res: Response) => {
     console.log(`[services route] Git branches requested for service: ${name}`);
 
     // Check if running in production/testing/Ubuntu environment
-    if (process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "testing") {
+    if (
+      process.env.NODE_ENV !== "production" &&
+      process.env.NODE_ENV !== "testing"
+    ) {
       return res.status(400).json({
         error: {
           code: "VALIDATION_ERROR",
-          message: "This endpoint only works in production or testing environment on Ubuntu OS",
-          status: 400
-        }
+          message:
+            "This endpoint only works in production or testing environment on Ubuntu OS",
+          status: 400,
+        },
       });
     }
 
@@ -439,8 +554,8 @@ router.get("/git/:name", async (req: Request, res: Response) => {
           code: "NOT_FOUND",
           message: "Machine not found in database",
           details: `Machine with name "${machineName}" not found in database`,
-          status: 404
-        }
+          status: 404,
+        },
       });
     }
 
@@ -453,8 +568,8 @@ router.get("/git/:name", async (req: Request, res: Response) => {
           code: "NOT_FOUND",
           message: "No services configured for this machine",
           details: `Machine "${machineName}" has no services configured in servicesArray`,
-          status: 404
-        }
+          status: 404,
+        },
       });
     }
 
@@ -467,24 +582,27 @@ router.get("/git/:name", async (req: Request, res: Response) => {
           code: "NOT_FOUND",
           message: "Service not found",
           details: `Service with name "${name}" is not configured in this machine's servicesArray`,
-          status: 404
-        }
+          status: 404,
+        },
       });
     }
 
     console.log(`[services route] Found service: ${service.name}`);
 
     // Get remote branches
-    const branchesResult = await getRemoteBranches(name);
+    const branchesResult = await getLocalBranches(name);
 
     if (!branchesResult.success) {
       return res.status(500).json({
         error: {
           code: "INTERNAL_ERROR",
           message: "Failed to get remote branches",
-          details: process.env.NODE_ENV !== 'production' ? branchesResult.error : undefined,
-          status: 500
-        }
+          details:
+            process.env.NODE_ENV !== "production"
+              ? branchesResult.error
+              : undefined,
+          status: 500,
+        },
       });
     }
 
@@ -496,45 +614,84 @@ router.get("/git/:name", async (req: Request, res: Response) => {
         error: {
           code: "INTERNAL_ERROR",
           message: "Failed to get current branch",
-          details: process.env.NODE_ENV !== 'production' ? currentBranchResult.error : undefined,
-          status: 500
-        }
+          details:
+            process.env.NODE_ENV !== "production"
+              ? currentBranchResult.error
+              : undefined,
+          status: 500,
+        },
       });
     }
 
-    console.log(`[services route] Successfully retrieved ${branchesResult.branches.length} remote branches and current branch: ${currentBranchResult.currentBranch}`);
+    // Get remote branches
+    const remoteBranchesResult = await getRemoteBranches(name);
+
+    if (!remoteBranchesResult.success) {
+      return res.status(500).json({
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Failed to get remote branches",
+          details:
+            process.env.NODE_ENV !== "production"
+              ? remoteBranchesResult.error
+              : undefined,
+          status: 500,
+        },
+      });
+    }
+
+    console.log(
+      `[services route] Successfully retrieved ${branchesResult.branches.length} local branches, ${remoteBranchesResult.branches.length} remote branches, and current branch: ${currentBranchResult.currentBranch}`
+    );
     res.json({
-      gitBranchesArray: branchesResult.branches,
-      currentBranch: currentBranchResult.currentBranch
+      gitBranchesLocalArray: branchesResult.branches,
+      gitBranchesRemoteArray: remoteBranchesResult.branches,
+      currentBranch: currentBranchResult.currentBranch,
     });
   } catch (error: any) {
-    console.error("[services route] Unhandled error in GET /services/git/:name:", error);
+    console.error(
+      "[services route] Unhandled error in GET /services/git/:name:",
+      error
+    );
     res.status(500).json({
       error: {
         code: "INTERNAL_ERROR",
         message: "Failed to get remote branches",
-        details: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.message : "Unknown error") : undefined,
-        status: 500
-      }
+        details:
+          process.env.NODE_ENV !== "production"
+            ? error instanceof Error
+              ? error.message
+              : "Unknown error"
+            : undefined,
+        status: 500,
+      },
     });
   }
 });
 
 // 🔹 POST /services/git/:name/:action: Execute git fetch or pull
 router.post("/git/:name/:action", async (req: Request, res: Response) => {
-  console.log("[services route] POST /services/git/:name/:action - Request received");
+  console.log(
+    "[services route] POST /services/git/:name/:action - Request received"
+  );
   try {
     const { name, action } = req.params;
-    console.log(`[services route] Git action "${action}" requested for service: ${name}`);
+    console.log(
+      `[services route] Git action "${action}" requested for service: ${name}`
+    );
 
     // Check if running in production/testing/Ubuntu environment
-    if (process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "testing") {
+    if (
+      process.env.NODE_ENV !== "production" &&
+      process.env.NODE_ENV !== "testing"
+    ) {
       return res.status(400).json({
         error: {
           code: "VALIDATION_ERROR",
-          message: "This endpoint only works in production or testing environment on Ubuntu OS",
-          status: 400
-        }
+          message:
+            "This endpoint only works in production or testing environment on Ubuntu OS",
+          status: 400,
+        },
       });
     }
 
@@ -546,8 +703,8 @@ router.post("/git/:name/:action", async (req: Request, res: Response) => {
           code: "VALIDATION_ERROR",
           message: "Invalid action",
           details: `Invalid action. Must be one of: ${validActions.join(", ")}`,
-          status: 400
-        }
+          status: 400,
+        },
       });
     }
 
@@ -564,8 +721,8 @@ router.post("/git/:name/:action", async (req: Request, res: Response) => {
           code: "NOT_FOUND",
           message: "Machine not found in database",
           details: `Machine with name "${machineName}" not found in database`,
-          status: 404
-        }
+          status: 404,
+        },
       });
     }
 
@@ -578,8 +735,8 @@ router.post("/git/:name/:action", async (req: Request, res: Response) => {
           code: "NOT_FOUND",
           message: "No services configured for this machine",
           details: `Machine "${machineName}" has no services configured in servicesArray`,
-          status: 404
-        }
+          status: 404,
+        },
       });
     }
 
@@ -592,24 +749,26 @@ router.post("/git/:name/:action", async (req: Request, res: Response) => {
           code: "NOT_FOUND",
           message: "Service not found",
           details: `Service with name "${name}" is not configured in this machine's servicesArray`,
-          status: 404
-        }
+          status: 404,
+        },
       });
     }
 
     console.log(`[services route] Found service: ${service.name}`);
 
     // Execute git action
-    const result = action === "fetch" ? await gitFetch(name) : await gitPull(name);
+    const result =
+      action === "fetch" ? await gitFetch(name) : await gitPull(name);
 
     if (!result.success) {
       return res.status(500).json({
         error: {
           code: "INTERNAL_ERROR",
           message: `Failed to execute git ${action}`,
-          details: process.env.NODE_ENV !== 'production' ? result.error : undefined,
-          status: 500
-        }
+          details:
+            process.env.NODE_ENV !== "production" ? result.error : undefined,
+          status: 500,
+        },
       });
     }
 
@@ -618,236 +777,296 @@ router.post("/git/:name/:action", async (req: Request, res: Response) => {
       success: true,
       action,
       stdout: result.stdout,
-      stderr: result.stderr
+      stderr: result.stderr,
     });
   } catch (error: any) {
-    console.error("[services route] Unhandled error in POST /services/git/:name/:action:", error);
+    console.error(
+      "[services route] Unhandled error in POST /services/git/:name/:action:",
+      error
+    );
     res.status(500).json({
       error: {
         code: "INTERNAL_ERROR",
         message: "Failed to execute git action",
-        details: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.message : "Unknown error") : undefined,
-        status: 500
-      }
+        details:
+          process.env.NODE_ENV !== "production"
+            ? error instanceof Error
+              ? error.message
+              : "Unknown error"
+            : undefined,
+        status: 500,
+      },
     });
   }
 });
 
 // 🔹 POST /services/git/checkout/:name/:branchName: Checkout a branch
-router.post("/git/checkout/:name/:branchName", async (req: Request, res: Response) => {
-  console.log("[services route] POST /services/git/checkout/:name/:branchName - Request received");
-  try {
-    const { name, branchName } = req.params;
-    console.log(`[services route] Git checkout "${branchName}" requested for service: ${name}`);
+router.post(
+  "/git/checkout/:name/:branchName",
+  async (req: Request, res: Response) => {
+    console.log(
+      "[services route] POST /services/git/checkout/:name/:branchName - Request received"
+    );
+    try {
+      const { name, branchName } = req.params;
+      console.log(
+        `[services route] Git checkout "${branchName}" requested for service: ${name}`
+      );
 
-    // Check if running in production/testing/Ubuntu environment
-    if (process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "testing") {
-      return res.status(400).json({
-        error: {
-          code: "VALIDATION_ERROR",
-          message: "This endpoint only works in production or testing environment on Ubuntu OS",
-          status: 400
-        }
+      // Check if running in production/testing/Ubuntu environment
+      if (
+        process.env.NODE_ENV !== "production" &&
+        process.env.NODE_ENV !== "testing"
+      ) {
+        return res.status(400).json({
+          error: {
+            code: "VALIDATION_ERROR",
+            message:
+              "This endpoint only works in production or testing environment on Ubuntu OS",
+            status: 400,
+          },
+        });
+      }
+
+      // Get current machine info
+      const { machineName } = getMachineInfo();
+      console.log(`[services route] Machine name from OS: ${machineName}`);
+
+      // Find the machine in the database by machineName
+      const machine = await Machine.findOne({ machineName });
+
+      if (!machine) {
+        return res.status(404).json({
+          error: {
+            code: "NOT_FOUND",
+            message: "Machine not found in database",
+            details: `Machine with name "${machineName}" not found in database`,
+            status: 404,
+          },
+        });
+      }
+
+      console.log(`[services route] Machine found: ${machine.publicId}`);
+
+      // Check if machine has servicesArray
+      if (!machine.servicesArray || machine.servicesArray.length === 0) {
+        return res.status(404).json({
+          error: {
+            code: "NOT_FOUND",
+            message: "No services configured for this machine",
+            details: `Machine "${machineName}" has no services configured in servicesArray`,
+            status: 404,
+          },
+        });
+      }
+
+      // Find the service in the servicesArray by name
+      const service = machine.servicesArray.find((s) => s.name === name);
+
+      if (!service) {
+        return res.status(404).json({
+          error: {
+            code: "NOT_FOUND",
+            message: "Service not found",
+            details: `Service with name "${name}" is not configured in this machine's servicesArray`,
+            status: 404,
+          },
+        });
+      }
+
+      console.log(`[services route] Found service: ${service.name}`);
+
+      // Execute git checkout
+      const result = await gitCheckout(name, branchName);
+
+      if (!result.success) {
+        return res.status(500).json({
+          error: {
+            code: "INTERNAL_ERROR",
+            message: `Failed to checkout branch "${branchName}"`,
+            details:
+              process.env.NODE_ENV !== "production" ? result.error : undefined,
+            status: 500,
+          },
+        });
+      }
+
+      console.log(
+        `[services route] Successfully checked out branch: ${branchName}`
+      );
+      res.json({
+        success: true,
+        branchName,
+        stdout: result.stdout,
+        stderr: result.stderr,
       });
-    }
-
-    // Get current machine info
-    const { machineName } = getMachineInfo();
-    console.log(`[services route] Machine name from OS: ${machineName}`);
-
-    // Find the machine in the database by machineName
-    const machine = await Machine.findOne({ machineName });
-
-    if (!machine) {
-      return res.status(404).json({
-        error: {
-          code: "NOT_FOUND",
-          message: "Machine not found in database",
-          details: `Machine with name "${machineName}" not found in database`,
-          status: 404
-        }
-      });
-    }
-
-    console.log(`[services route] Machine found: ${machine.publicId}`);
-
-    // Check if machine has servicesArray
-    if (!machine.servicesArray || machine.servicesArray.length === 0) {
-      return res.status(404).json({
-        error: {
-          code: "NOT_FOUND",
-          message: "No services configured for this machine",
-          details: `Machine "${machineName}" has no services configured in servicesArray`,
-          status: 404
-        }
-      });
-    }
-
-    // Find the service in the servicesArray by name
-    const service = machine.servicesArray.find((s) => s.name === name);
-
-    if (!service) {
-      return res.status(404).json({
-        error: {
-          code: "NOT_FOUND",
-          message: "Service not found",
-          details: `Service with name "${name}" is not configured in this machine's servicesArray`,
-          status: 404
-        }
-      });
-    }
-
-    console.log(`[services route] Found service: ${service.name}`);
-
-    // Execute git checkout
-    const result = await gitCheckout(name, branchName);
-
-    if (!result.success) {
-      return res.status(500).json({
+    } catch (error: any) {
+      console.error(
+        "[services route] Unhandled error in POST /services/git/checkout/:name/:branchName:",
+        error
+      );
+      res.status(500).json({
         error: {
           code: "INTERNAL_ERROR",
-          message: `Failed to checkout branch "${branchName}"`,
-          details: process.env.NODE_ENV !== 'production' ? result.error : undefined,
-          status: 500
-        }
+          message: "Failed to checkout branch",
+          details:
+            process.env.NODE_ENV !== "production"
+              ? error instanceof Error
+                ? error.message
+                : "Unknown error"
+              : undefined,
+          status: 500,
+        },
       });
     }
-
-    console.log(`[services route] Successfully checked out branch: ${branchName}`);
-    res.json({
-      success: true,
-      branchName,
-      stdout: result.stdout,
-      stderr: result.stderr
-    });
-  } catch (error: any) {
-    console.error("[services route] Unhandled error in POST /services/git/checkout/:name/:branchName:", error);
-    res.status(500).json({
-      error: {
-        code: "INTERNAL_ERROR",
-        message: "Failed to checkout branch",
-        details: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.message : "Unknown error") : undefined,
-        status: 500
-      }
-    });
   }
-});
+);
 
 // 🔹 DELETE /services/git/delete-branch/:name/:branchName: Delete a branch
-router.delete("/git/delete-branch/:name/:branchName", async (req: Request, res: Response) => {
-  console.log("[services route] DELETE /services/git/delete-branch/:name/:branchName - Request received");
-  try {
-    const { name, branchName } = req.params;
-    console.log(`[services route] Delete branch "${branchName}" requested for service: ${name}`);
+router.delete(
+  "/git/delete-branch/:name/:branchName",
+  async (req: Request, res: Response) => {
+    console.log(
+      "[services route] DELETE /services/git/delete-branch/:name/:branchName - Request received"
+    );
+    try {
+      const { name, branchName } = req.params;
+      console.log(
+        `[services route] Delete branch "${branchName}" requested for service: ${name}`
+      );
 
-    // Check if running in production/testing/Ubuntu environment
-    if (process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "testing") {
-      return res.status(400).json({
-        error: {
-          code: "VALIDATION_ERROR",
-          message: "This endpoint only works in production or testing environment on Ubuntu OS",
-          status: 400
-        }
+      // Check if running in production/testing/Ubuntu environment
+      if (
+        process.env.NODE_ENV !== "production" &&
+        process.env.NODE_ENV !== "testing"
+      ) {
+        return res.status(400).json({
+          error: {
+            code: "VALIDATION_ERROR",
+            message:
+              "This endpoint only works in production or testing environment on Ubuntu OS",
+            status: 400,
+          },
+        });
+      }
+
+      // Get current machine info
+      const { machineName } = getMachineInfo();
+      console.log(`[services route] Machine name from OS: ${machineName}`);
+
+      // Find the machine in the database by machineName
+      const machine = await Machine.findOne({ machineName });
+
+      if (!machine) {
+        return res.status(404).json({
+          error: {
+            code: "NOT_FOUND",
+            message: "Machine not found in database",
+            details: `Machine with name "${machineName}" not found in database`,
+            status: 404,
+          },
+        });
+      }
+
+      console.log(`[services route] Machine found: ${machine.publicId}`);
+
+      // Check if machine has servicesArray
+      if (!machine.servicesArray || machine.servicesArray.length === 0) {
+        return res.status(404).json({
+          error: {
+            code: "NOT_FOUND",
+            message: "No services configured for this machine",
+            details: `Machine "${machineName}" has no services configured in servicesArray`,
+            status: 404,
+          },
+        });
+      }
+
+      // Find the service in the servicesArray by name
+      const service = machine.servicesArray.find((s) => s.name === name);
+
+      if (!service) {
+        return res.status(404).json({
+          error: {
+            code: "NOT_FOUND",
+            message: "Service not found",
+            details: `Service with name "${name}" is not configured in this machine's servicesArray`,
+            status: 404,
+          },
+        });
+      }
+
+      console.log(`[services route] Found service: ${service.name}`);
+
+      // Execute git branch -D
+      const result = await deleteBranch(name, branchName);
+
+      if (!result.success) {
+        return res.status(500).json({
+          error: {
+            code: "INTERNAL_ERROR",
+            message: `Failed to delete branch "${branchName}"`,
+            details:
+              process.env.NODE_ENV !== "production" ? result.error : undefined,
+            status: 500,
+          },
+        });
+      }
+
+      console.log(
+        `[services route] Successfully deleted branch: ${branchName}`
+      );
+      res.json({
+        success: true,
+        branchName,
+        stdout: result.stdout,
+        stderr: result.stderr,
       });
-    }
-
-    // Get current machine info
-    const { machineName } = getMachineInfo();
-    console.log(`[services route] Machine name from OS: ${machineName}`);
-
-    // Find the machine in the database by machineName
-    const machine = await Machine.findOne({ machineName });
-
-    if (!machine) {
-      return res.status(404).json({
-        error: {
-          code: "NOT_FOUND",
-          message: "Machine not found in database",
-          details: `Machine with name "${machineName}" not found in database`,
-          status: 404
-        }
-      });
-    }
-
-    console.log(`[services route] Machine found: ${machine.publicId}`);
-
-    // Check if machine has servicesArray
-    if (!machine.servicesArray || machine.servicesArray.length === 0) {
-      return res.status(404).json({
-        error: {
-          code: "NOT_FOUND",
-          message: "No services configured for this machine",
-          details: `Machine "${machineName}" has no services configured in servicesArray`,
-          status: 404
-        }
-      });
-    }
-
-    // Find the service in the servicesArray by name
-    const service = machine.servicesArray.find((s) => s.name === name);
-
-    if (!service) {
-      return res.status(404).json({
-        error: {
-          code: "NOT_FOUND",
-          message: "Service not found",
-          details: `Service with name "${name}" is not configured in this machine's servicesArray`,
-          status: 404
-        }
-      });
-    }
-
-    console.log(`[services route] Found service: ${service.name}`);
-
-    // Execute git branch -D
-    const result = await deleteBranch(name, branchName);
-
-    if (!result.success) {
-      return res.status(500).json({
+    } catch (error: any) {
+      console.error(
+        "[services route] Unhandled error in DELETE /services/git/delete-branch/:name/:branchName:",
+        error
+      );
+      res.status(500).json({
         error: {
           code: "INTERNAL_ERROR",
-          message: `Failed to delete branch "${branchName}"`,
-          details: process.env.NODE_ENV !== 'production' ? result.error : undefined,
-          status: 500
-        }
+          message: "Failed to delete branch",
+          details:
+            process.env.NODE_ENV !== "production"
+              ? error instanceof Error
+                ? error.message
+                : "Unknown error"
+              : undefined,
+          status: 500,
+        },
       });
     }
-
-    console.log(`[services route] Successfully deleted branch: ${branchName}`);
-    res.json({
-      success: true,
-      branchName,
-      stdout: result.stdout,
-      stderr: result.stderr
-    });
-  } catch (error: any) {
-    console.error("[services route] Unhandled error in DELETE /services/git/delete-branch/:name/:branchName:", error);
-    res.status(500).json({
-      error: {
-        code: "INTERNAL_ERROR",
-        message: "Failed to delete branch",
-        details: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.message : "Unknown error") : undefined,
-        status: 500
-      }
-    });
   }
-});
+);
 
 // 🔹 POST /services/npm/:name/:action: Execute npm install or build
 router.post("/npm/:name/:action", async (req: Request, res: Response) => {
-  console.log("[services route] POST /services/npm/:name/:action - Request received");
+  console.log(
+    "[services route] POST /services/npm/:name/:action - Request received"
+  );
   try {
     const { name, action } = req.params;
-    console.log(`[services route] npm ${action} requested for service: ${name}`);
+    console.log(
+      `[services route] npm ${action} requested for service: ${name}`
+    );
 
     // Check if running in production/testing/Ubuntu environment
-    if (process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "testing") {
+    if (
+      process.env.NODE_ENV !== "production" &&
+      process.env.NODE_ENV !== "testing"
+    ) {
       return res.status(400).json({
         error: {
           code: "VALIDATION_ERROR",
-          message: "This endpoint only works in production or testing environment on Ubuntu OS",
-          status: 400
-        }
+          message:
+            "This endpoint only works in production or testing environment on Ubuntu OS",
+          status: 400,
+        },
       });
     }
 
@@ -859,8 +1078,8 @@ router.post("/npm/:name/:action", async (req: Request, res: Response) => {
           code: "VALIDATION_ERROR",
           message: "Invalid action",
           details: `Invalid action. Must be one of: ${validActions.join(", ")}`,
-          status: 400
-        }
+          status: 400,
+        },
       });
     }
 
@@ -877,8 +1096,8 @@ router.post("/npm/:name/:action", async (req: Request, res: Response) => {
           code: "NOT_FOUND",
           message: "Machine not found in database",
           details: `Machine with name "${machineName}" not found in database`,
-          status: 404
-        }
+          status: 404,
+        },
       });
     }
 
@@ -891,8 +1110,8 @@ router.post("/npm/:name/:action", async (req: Request, res: Response) => {
           code: "NOT_FOUND",
           message: "No services configured for this machine",
           details: `Machine "${machineName}" has no services configured in servicesArray`,
-          status: 404
-        }
+          status: 404,
+        },
       });
     }
 
@@ -905,32 +1124,43 @@ router.post("/npm/:name/:action", async (req: Request, res: Response) => {
           code: "NOT_FOUND",
           message: "Service not found",
           details: `Service with name "${name}" is not configured in this machine's servicesArray`,
-          status: 404
-        }
+          status: 404,
+        },
       });
     }
 
     console.log(`[services route] Found service: ${service.name}`);
 
     // Execute npm action
-    const result = action === "install" ? await npmInstall(name) : await npmBuild(name);
+    const result =
+      action === "install" ? await npmInstall(name) : await npmBuild(name);
 
-    console.log(`[services route] npm ${action} completed with status: ${result.status}`);
+    console.log(
+      `[services route] npm ${action} completed with status: ${result.status}`
+    );
 
     res.json({
       status: result.status,
       warnings: result.warnings,
-      failureReason: result.failureReason
+      failureReason: result.failureReason,
     });
   } catch (error: any) {
-    console.error("[services route] Unhandled error in POST /services/npm/:name/:action:", error);
+    console.error(
+      "[services route] Unhandled error in POST /services/npm/:name/:action:",
+      error
+    );
     res.status(500).json({
       error: {
         code: "INTERNAL_ERROR",
         message: "Failed to execute npm command",
-        details: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.message : "Unknown error") : undefined,
-        status: 500
-      }
+        details:
+          process.env.NODE_ENV !== "production"
+            ? error instanceof Error
+              ? error.message
+              : "Unknown error"
+            : undefined,
+        status: 500,
+      },
     });
   }
 });

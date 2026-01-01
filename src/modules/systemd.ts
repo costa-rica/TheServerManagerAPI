@@ -137,7 +137,8 @@ export async function writeServiceFile(
       logger.info(`[systemd.ts] Successfully wrote temporary file to: ${tmpPath}`);
 
       // Use sudo mv to move the file to the system directory
-      const command = `sudo mv "${tmpPath}" "${outputPath}"`;
+      // Note: We move to the directory (not full path) to match sudoers permissions
+      const command = `sudo mv "${tmpPath}" "/etc/systemd/system/"`;
       logger.info(`[systemd.ts] Executing command: ${command}`);
 
       const { stdout, stderr } = await execAsync(command);

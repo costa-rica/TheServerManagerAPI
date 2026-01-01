@@ -22,9 +22,12 @@ nick,ALL=(root),NOPASSWD:,/usr/bin/systemctl,restart,tsm-api.service
 nick,ALL=(root),NOPASSWD:,/usr/bin/systemctl,status,tsm-api.service
 nick,ALL=(root),NOPASSWD:,/usr/bin/mv,/home/nick/*.service,/etc/systemd/system/
 nick,ALL=(root),NOPASSWD:,/usr/bin/mv,/home/nick/*.timer,/etc/systemd/system/
+nick,ALL=(root),NOPASSWD:,/usr/bin/cat,/etc/systemd/system/*.service,
+nick,ALL=(root),NOPASSWD:,/usr/bin/cat,/etc/systemd/system/*.timer,
 ```
 
 Each row specifies:
+
 - **user**: Username that gets the privilege (nick)
 - **runas**: Execution context (ALL=(root) means run as root)
 - **tag**: Permission modifier (NOPASSWD: means no password required)
@@ -55,6 +58,7 @@ rm -f "$TMP"
 ```
 
 **How it works:**
+
 1. Reads CSV file, skipping the header row
 2. Removes Windows line endings (if present)
 3. Parses CSV and outputs space-separated sudoers rules
@@ -63,6 +67,7 @@ rm -f "$TMP"
 6. Cleans up temporary file
 
 **Usage:**
+
 ```bash
 # After modifying nick-systemctl.csv, run:
 /home/nick/update-nick-systemctl.sh
@@ -71,6 +76,7 @@ rm -f "$TMP"
 ### Why This Approach
 
 **Security Benefits:**
+
 - Application runs as regular user (nick), not root
 - Only specific commands can be executed with sudo
 - Wildcards are controlled (e.g., `*.service` not `*`)
@@ -78,6 +84,7 @@ rm -f "$TMP"
 - Automatic syntax validation prevents configuration errors
 
 **Operational Benefits:**
+
 - Easy to add new service-specific permissions
 - Changes don't require manual sudoers editing
 - Reduces risk of typos in sudoers file
@@ -103,6 +110,7 @@ nick,ALL=(root),NOPASSWD:,/usr/bin/mv,/home/nick/*.timer,/etc/systemd/system/
 ### How It Works
 
 **Write Strategy:**
+
 1. API reads template from `dist/templates/systemdServiceFiles/`
 2. Replaces placeholders (`{{PROJECT_NAME}}`, `{{PORT}}`, etc.) with provided values
 3. Auto-generates lowercase filename: `NewsNexusRequesterGoogleRss02` → `newsnexusrequestergooglerss02.service`
@@ -111,6 +119,7 @@ nick,ALL=(root),NOPASSWD:,/usr/bin/mv,/home/nick/*.timer,/etc/systemd/system/
 6. File now exists at `/etc/systemd/system/[projectname].service` with proper permissions
 
 **Why This Pattern:**
+
 - Node.js cannot write directly to `/etc/systemd/system/` (permission denied)
 - Sudo mv requires exact command matching in sudoers
 - Writing to `/home/nick/` first avoids complex shell escaping
@@ -119,16 +128,19 @@ nick,ALL=(root),NOPASSWD:,/usr/bin/mv,/home/nick/*.timer,/etc/systemd/system/
 **Exact Command Matching:**
 
 Sudo is strict about matching commands. The sudoers rule:
+
 ```
 nick ALL=(root) NOPASSWD: /usr/bin/mv /home/nick/*.service /etc/systemd/system/
 ```
 
 Matches this command:
+
 ```bash
 sudo mv "/home/nick/file.service" "/etc/systemd/system/"
 ```
 
 But NOT this command:
+
 ```bash
 sudo mv "/home/nick/file.service" "/etc/systemd/system/file.service"
 ```
@@ -169,6 +181,7 @@ nick,ALL=(root),NOPASSWD:,/usr/bin/systemctl,disable,newsnexus-requestergnews02.
 ### How It Works
 
 **Execution Flow:**
+
 1. API receives request: `POST /services/myapp.service/restart`
 2. Validates service exists in machine's `servicesArray` in MongoDB
 3. Validates action is one of: start, stop, restart, reload, enable, disable
@@ -190,6 +203,7 @@ This ensures the API and web interface remain accessible even if someone tries t
 ### Service Status Parsing
 
 After each action, the API queries `systemctl status` and parses:
+
 - **Loaded:** Whether service file exists and is enabled/disabled for boot
 - **Active:** Current state (active/inactive/failed) with timestamp
 - **Status:** Simplified state extracted from Active line
@@ -198,15 +212,66 @@ After each action, the API queries `systemctl status` and parses:
 ### Permission Granularity
 
 Unlike the service file generation endpoint (which uses wildcards), service control requires explicit permissions for each service. This is intentional:
+
 - **Service generation:** Low risk, just writes configuration files
 - **Service control:** High risk, can stop critical services
 
 To add a new service to the control system:
+
 1. Add 6 rows to `nick-systemctl.csv` (one per action: start, stop, restart, status, enable, disable)
 2. Run `/home/nick/update-nick-systemctl.sh` to apply changes
 3. Add service to machine's `servicesArray` in MongoDB
 
 This granular approach provides audit trails showing exactly which services can be controlled and prevents unauthorized service manipulation.
+
+---
+
+## Service File Management
+
+### GET /services/service-file/:filename and POST /services/service-file/:filename
+
+These endpoints enable reading and updating systemd service and timer files directly through the API. They complement the generation endpoint by allowing modification of existing files.
+
+### Sudo Requirements
+
+Reading service files requires:
+
+```csv
+nick,ALL=(root),NOPASSWD:,/usr/bin/cat,/etc/systemd/system/*.service,
+nick,ALL=(root),NOPASSWD:,/usr/bin/cat,/etc/systemd/system/*.timer,
+```
+
+Updating uses the same `mv` permissions as file generation (already configured):
+
+```csv
+nick,ALL=(root),NOPASSWD:,/usr/bin/mv,/home/nick/*.service,/etc/systemd/system/
+nick,ALL=(root),NOPASSWD:,/usr/bin/mv,/home/nick/*.timer,/etc/systemd/system/
+```
+
+### How It Works
+
+**GET Endpoint:**
+- Accepts either `.service` or `.timer` filename
+- Parses base name and searches for both file types
+- Uses `sudo cat /etc/systemd/system/{filename}` to read files
+- Returns both files if they exist, or `null` for missing files
+- Enables retrieving current file contents before editing
+
+**POST Endpoint:**
+- Updates existing service or timer files only (will not create new files)
+- Validates filename exists in current machine's `servicesArray`
+- Checks file exists before allowing update
+- Writes to `/home/nick/{filename}` then uses `sudo mv` to system directory
+- Prevents unauthorized file creation by requiring pre-existing files
+
+**Typical Workflow:**
+1. Use GET to retrieve current file contents
+2. Modify contents in frontend
+3. Use POST to update the file
+4. Run `systemctl daemon-reload` to reload systemd configuration
+5. Restart the service to apply changes
+
+This approach provides a safe edit workflow while maintaining security through validation and sudo permissions.
 
 ---
 
@@ -232,15 +297,18 @@ This granular approach provides audit trails showing exactly which services can 
 ### Troubleshooting
 
 **"sudo: a password is required"**
+
 - Command doesn't match sudoers rule exactly
 - Check logs for the exact command being executed
 - Verify CSV entry matches command syntax (including destination path format)
 
 **"Permission denied" when writing service files**
+
 - Ensure `/home/nick/` directory is writable by nick user
 - Verify sudoers includes mv permissions with wildcard patterns
 
 **Service control fails**
+
 - Verify service has entries in `nick-systemctl.csv` for the specific action
 - Run `sudo visudo -c -f /etc/sudoers.d/nick-systemctl` to check for syntax errors
 - Ensure service exists in machine's `servicesArray` in MongoDB

@@ -108,7 +108,7 @@ export async function readTemplateFile(
 
 /**
  * Write a service or timer file to the specified path
- * Uses sudo when writing to system directories like /etc/systemd/system/
+ * Uses sudo mv when writing to system directories like /etc/systemd/system/
  * @param outputPath - Full path where the file should be written
  * @param content - The processed service/timer file content
  * @returns Promise that resolves when file is written
@@ -123,44 +123,38 @@ export async function writeServiceFile(
   const isSystemDirectory = outputPath.startsWith("/etc/systemd/system/");
 
   if (isSystemDirectory) {
-    // Use sudo to write to system directories
-    // We'll use 'echo' piped to 'sudo tee' to write the file with elevated privileges
+    // Use sudo mv to move file from /home/nick/ to system directory
     logger.info(
-      `[systemd.ts] Detected system directory, using sudo to write file`
+      `[systemd.ts] Detected system directory, using sudo mv to write file`
     );
 
     try {
-      // First, write content to a temporary file to avoid shell escaping issues
-      const tmpPath = `/tmp/${path.basename(outputPath)}.tmp`;
+      // First, write content to /home/nick/ directory
+      const filename = path.basename(outputPath);
+      const tmpPath = `/home/nick/${filename}`;
       logger.info(`[systemd.ts] Writing temporary file to: ${tmpPath}`);
       await fs.writeFile(tmpPath, content, "utf-8");
+      logger.info(`[systemd.ts] Successfully wrote temporary file to: ${tmpPath}`);
 
-      // Use sudo to copy the temp file to the system directory
-      const command = `sudo cp "${tmpPath}" "${outputPath}" && sudo chmod 644 "${outputPath}"`;
+      // Use sudo mv to move the file to the system directory
+      const command = `sudo mv "${tmpPath}" "${outputPath}"`;
       logger.info(`[systemd.ts] Executing command: ${command}`);
 
       const { stdout, stderr } = await execAsync(command);
 
-      if (stderr && !stderr.includes("")) {
+      if (stderr) {
         logger.warn(`[systemd.ts] Command stderr: ${stderr}`);
       }
       if (stdout) {
         logger.info(`[systemd.ts] Command stdout: ${stdout}`);
       }
 
-      // Clean up temp file
-      await fs.unlink(tmpPath).catch((err) => {
-        logger.warn(
-          `[systemd.ts] Failed to delete temp file ${tmpPath}: ${err.message}`
-        );
-      });
-
-      logger.info(`[systemd.ts] Successfully wrote file using sudo: ${outputPath}`);
+      logger.info(`[systemd.ts] Successfully moved file using sudo mv: ${outputPath}`);
     } catch (error: any) {
       logger.error(
-        `[systemd.ts] Error writing service file with sudo: ${error.message}`
+        `[systemd.ts] Error writing service file with sudo mv: ${error.message}`
       );
-      logger.error(`[systemd.ts] Command that failed: sudo cp`);
+      logger.error(`[systemd.ts] Command that failed: sudo mv`);
       if (error.stderr) {
         logger.error(`[systemd.ts] stderr: ${error.stderr}`);
       }

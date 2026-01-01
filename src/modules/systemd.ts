@@ -1,6 +1,10 @@
 import fs from "fs/promises";
 import path from "path";
+import { exec } from "child_process";
+import { promisify } from "util";
 import logger from "../config/logger";
+
+const execAsync = promisify(exec);
 
 const TEMPLATES_PATH = path.resolve(
   __dirname,
@@ -104,6 +108,7 @@ export async function readTemplateFile(
 
 /**
  * Write a service or timer file to the specified path
+ * Uses sudo when writing to system directories like /etc/systemd/system/
  * @param outputPath - Full path where the file should be written
  * @param content - The processed service/timer file content
  * @returns Promise that resolves when file is written
@@ -114,12 +119,68 @@ export async function writeServiceFile(
 ): Promise<void> {
   logger.info(`[systemd.ts] Writing service file to: ${outputPath}`);
 
-  try {
-    await fs.writeFile(outputPath, content, "utf-8");
-    logger.info(`[systemd.ts] Successfully wrote file: ${outputPath}`);
-  } catch (error: any) {
-    logger.error(`[systemd.ts] Error writing service file: ${error.message}`);
-    throw new Error(`Failed to write service file to: ${outputPath}`);
+  // Check if we're writing to a system directory that requires sudo
+  const isSystemDirectory = outputPath.startsWith("/etc/systemd/system/");
+
+  if (isSystemDirectory) {
+    // Use sudo to write to system directories
+    // We'll use 'echo' piped to 'sudo tee' to write the file with elevated privileges
+    logger.info(
+      `[systemd.ts] Detected system directory, using sudo to write file`
+    );
+
+    try {
+      // First, write content to a temporary file to avoid shell escaping issues
+      const tmpPath = `/tmp/${path.basename(outputPath)}.tmp`;
+      logger.info(`[systemd.ts] Writing temporary file to: ${tmpPath}`);
+      await fs.writeFile(tmpPath, content, "utf-8");
+
+      // Use sudo to copy the temp file to the system directory
+      const command = `sudo cp "${tmpPath}" "${outputPath}" && sudo chmod 644 "${outputPath}"`;
+      logger.info(`[systemd.ts] Executing command: ${command}`);
+
+      const { stdout, stderr } = await execAsync(command);
+
+      if (stderr && !stderr.includes("")) {
+        logger.warn(`[systemd.ts] Command stderr: ${stderr}`);
+      }
+      if (stdout) {
+        logger.info(`[systemd.ts] Command stdout: ${stdout}`);
+      }
+
+      // Clean up temp file
+      await fs.unlink(tmpPath).catch((err) => {
+        logger.warn(
+          `[systemd.ts] Failed to delete temp file ${tmpPath}: ${err.message}`
+        );
+      });
+
+      logger.info(`[systemd.ts] Successfully wrote file using sudo: ${outputPath}`);
+    } catch (error: any) {
+      logger.error(
+        `[systemd.ts] Error writing service file with sudo: ${error.message}`
+      );
+      logger.error(`[systemd.ts] Command that failed: sudo cp`);
+      if (error.stderr) {
+        logger.error(`[systemd.ts] stderr: ${error.stderr}`);
+      }
+      if (error.stdout) {
+        logger.error(`[systemd.ts] stdout: ${error.stdout}`);
+      }
+      throw new Error(`Failed to write service file to: ${outputPath}`);
+    }
+  } else {
+    // Regular file write for non-system directories
+    logger.info(
+      `[systemd.ts] Writing to non-system directory using fs.writeFile`
+    );
+    try {
+      await fs.writeFile(outputPath, content, "utf-8");
+      logger.info(`[systemd.ts] Successfully wrote file: ${outputPath}`);
+    } catch (error: any) {
+      logger.error(`[systemd.ts] Error writing service file: ${error.message}`);
+      throw new Error(`Failed to write service file to: ${outputPath}`);
+    }
   }
 }
 

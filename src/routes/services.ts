@@ -1,5 +1,9 @@
 import express from "express";
 import type { Request, Response } from "express";
+import { exec } from "child_process";
+import { promisify } from "util";
+import fs from "fs/promises";
+import path from "path";
 import { authenticateToken } from "../modules/authentication";
 import { getMachineInfo } from "../modules/machines";
 import { Machine } from "../models/machine";
@@ -26,6 +30,8 @@ import {
   type TemplateVariables,
 } from "../modules/systemd";
 import logger from "../config/logger";
+
+const execAsync = promisify(exec);
 
 const router = express.Router();
 
@@ -1326,6 +1332,320 @@ router.post("/make-service-file", async (req: Request, res: Response) => {
       error: {
         code: "INTERNAL_ERROR",
         message: "Failed to generate service file(s)",
+        details:
+          process.env.NODE_ENV !== "production"
+            ? error instanceof Error
+              ? error.message
+              : "Unknown error"
+            : undefined,
+        status: 500,
+      },
+    });
+  }
+});
+
+// 🔹 GET /services/service-file/:filename: Read service and/or timer file contents
+router.get("/service-file/:filename", async (req: Request, res: Response) => {
+  logger.info(
+    "[services route] GET /services/service-file/:filename - Request received"
+  );
+  try {
+    const { filename } = req.params;
+    logger.info(`[services route] Requested filename: ${filename}`);
+
+    // Check if running in production/testing/Ubuntu environment
+    if (
+      process.env.NODE_ENV !== "production" &&
+      process.env.NODE_ENV !== "testing"
+    ) {
+      return res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message:
+            "This endpoint only works in production or testing environment on Ubuntu OS",
+          status: 400,
+        },
+      });
+    }
+
+    // Get PATH_TO_SERVICE_FILES from environment
+    const serviceFilesPath = process.env.PATH_TO_SERVICE_FILES;
+    if (!serviceFilesPath) {
+      return res.status(500).json({
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Server configuration error",
+          details: "PATH_TO_SERVICE_FILES environment variable is not set",
+          status: 500,
+        },
+      });
+    }
+
+    // Parse filename to get base name (split on period)
+    const parts = filename.split(".");
+    if (parts.length < 2) {
+      return res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid filename format",
+          details: "Filename must include extension (e.g., app.service or app.timer)",
+          status: 400,
+        },
+      });
+    }
+
+    // Get base name (everything before the last period)
+    const baseName = parts.slice(0, -1).join(".");
+    const filenameService = `${baseName}.service`;
+    const filenameTimer = `${baseName}.timer`;
+
+    logger.info(`[services route] Base name: ${baseName}`);
+    logger.info(`[services route] Will search for: ${filenameService} and ${filenameTimer}`);
+
+    // Try to read both service and timer files using sudo cat
+    let fileContentService: string | null = null;
+    let fileContentTimer: string | null = null;
+
+    // Read .service file
+    try {
+      const serviceFilePath = path.join(serviceFilesPath, filenameService);
+      const command = `sudo cat "${serviceFilePath}"`;
+      logger.info(`[services route] Executing: ${command}`);
+      const { stdout } = await execAsync(command);
+      fileContentService = stdout;
+      logger.info(`[services route] Successfully read ${filenameService}`);
+    } catch (error: any) {
+      logger.warn(`[services route] Could not read ${filenameService}: ${error.message}`);
+    }
+
+    // Read .timer file
+    try {
+      const timerFilePath = path.join(serviceFilesPath, filenameTimer);
+      const command = `sudo cat "${timerFilePath}"`;
+      logger.info(`[services route] Executing: ${command}`);
+      const { stdout } = await execAsync(command);
+      fileContentTimer = stdout;
+      logger.info(`[services route] Successfully read ${filenameTimer}`);
+    } catch (error: any) {
+      logger.warn(`[services route] Could not read ${filenameTimer}: ${error.message}`);
+    }
+
+    // If neither file was found, return error
+    if (fileContentService === null && fileContentTimer === null) {
+      return res.status(404).json({
+        error: {
+          code: "NOT_FOUND",
+          message: "Service files not found",
+          details: `Neither ${filenameService} nor ${filenameTimer} found in ${serviceFilesPath}`,
+          status: 404,
+        },
+      });
+    }
+
+    // Return success with whatever files were found
+    logger.info(`[services route] Returning service file contents`);
+    res.json({
+      status: "success",
+      filenameService,
+      filenameTimer,
+      fileContentService,
+      fileContentTimer,
+    });
+  } catch (error: any) {
+    logger.error(
+      "[services route] Unhandled error in GET /services/service-file/:filename:",
+      error
+    );
+    res.status(500).json({
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to read service file(s)",
+        details:
+          process.env.NODE_ENV !== "production"
+            ? error instanceof Error
+              ? error.message
+              : "Unknown error"
+            : undefined,
+        status: 500,
+      },
+    });
+  }
+});
+
+// 🔹 POST /services/service-file/:filename: Update a service or timer file
+router.post("/service-file/:filename", async (req: Request, res: Response) => {
+  logger.info(
+    "[services route] POST /services/service-file/:filename - Request received"
+  );
+  try {
+    const { filename } = req.params;
+    const { fileContents } = req.body;
+
+    logger.info(`[services route] Filename to update: ${filename}`);
+
+    // Check if running in production/testing/Ubuntu environment
+    if (
+      process.env.NODE_ENV !== "production" &&
+      process.env.NODE_ENV !== "testing"
+    ) {
+      return res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message:
+            "This endpoint only works in production or testing environment on Ubuntu OS",
+          status: 400,
+        },
+      });
+    }
+
+    // Validate fileContents is provided
+    if (!fileContents || typeof fileContents !== "string") {
+      return res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Request validation failed",
+          details: "Missing or invalid 'fileContents' in request body",
+          status: 400,
+        },
+      });
+    }
+
+    // Get PATH_TO_SERVICE_FILES from environment
+    const serviceFilesPath = process.env.PATH_TO_SERVICE_FILES;
+    if (!serviceFilesPath) {
+      return res.status(500).json({
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Server configuration error",
+          details: "PATH_TO_SERVICE_FILES environment variable is not set",
+          status: 500,
+        },
+      });
+    }
+
+    // Get current machine info
+    const { machineName } = getMachineInfo();
+    logger.info(`[services route] Machine name from OS: ${machineName}`);
+
+    // Find the machine in the database by machineName
+    const machine = await Machine.findOne({ machineName });
+
+    if (!machine) {
+      return res.status(404).json({
+        error: {
+          code: "NOT_FOUND",
+          message: "Machine not found in database",
+          details: `Machine with name "${machineName}" not found in database`,
+          status: 404,
+        },
+      });
+    }
+
+    logger.info(`[services route] Machine found: ${machine.publicId}`);
+
+    // Check if machine has servicesArray
+    if (!machine.servicesArray || machine.servicesArray.length === 0) {
+      return res.status(404).json({
+        error: {
+          code: "NOT_FOUND",
+          message: "No services configured for this machine",
+          details: `Machine "${machineName}" has no services configured in servicesArray`,
+          status: 404,
+        },
+      });
+    }
+
+    // Validate that filename matches a service in servicesArray
+    const isValidFile = machine.servicesArray.some(
+      (service) =>
+        service.filename === filename || service.filenameTimer === filename
+    );
+
+    if (!isValidFile) {
+      return res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Service file not configured for this machine",
+          details: `File "${filename}" is not in this machine's servicesArray`,
+          status: 400,
+        },
+      });
+    }
+
+    logger.info(
+      `[services route] Filename ${filename} validated in servicesArray`
+    );
+
+    // Check if file exists in PATH_TO_SERVICE_FILES before allowing update
+    const targetFilePath = path.join(serviceFilesPath, filename);
+    try {
+      const checkCommand = `sudo cat "${targetFilePath}"`;
+      logger.info(
+        `[services route] Checking if file exists: ${checkCommand}`
+      );
+      await execAsync(checkCommand);
+      logger.info(`[services route] File exists: ${targetFilePath}`);
+    } catch (error: any) {
+      logger.error(
+        `[services route] File does not exist: ${targetFilePath}`
+      );
+      return res.status(404).json({
+        error: {
+          code: "NOT_FOUND",
+          message: "Service file not found",
+          details: `File "${filename}" does not exist in ${serviceFilesPath}`,
+          status: 404,
+        },
+      });
+    }
+
+    // Write file to /home/nick/ first
+    const tmpPath = `/home/nick/${filename}`;
+    logger.info(`[services route] Writing temporary file to: ${tmpPath}`);
+    await fs.writeFile(tmpPath, fileContents, "utf-8");
+    logger.info(
+      `[services route] Successfully wrote temporary file: ${tmpPath}`
+    );
+
+    // Use sudo mv to move the file to the system directory
+    const mvCommand = `sudo mv "${tmpPath}" "${serviceFilesPath}/"`;
+    logger.info(`[services route] Executing: ${mvCommand}`);
+
+    try {
+      const { stdout, stderr } = await execAsync(mvCommand);
+      if (stderr) {
+        logger.warn(`[services route] mv stderr: ${stderr}`);
+      }
+      if (stdout) {
+        logger.info(`[services route] mv stdout: ${stdout}`);
+      }
+      logger.info(
+        `[services route] Successfully updated file: ${targetFilePath}`
+      );
+    } catch (error: any) {
+      logger.error(
+        `[services route] Error moving file with sudo mv: ${error.message}`
+      );
+      if (error.stderr) {
+        logger.error(`[services route] stderr: ${error.stderr}`);
+      }
+      throw new Error(`Failed to move file to ${serviceFilesPath}`);
+    }
+
+    res.json({
+      status: "success",
+      message: "Service file updated successfully",
+      filename,
+    });
+  } catch (error: any) {
+    logger.error(
+      "[services route] Unhandled error in POST /services/service-file/:filename:",
+      error
+    );
+    res.status(500).json({
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to update service file",
         details:
           process.env.NODE_ENV !== "production"
             ? error instanceof Error

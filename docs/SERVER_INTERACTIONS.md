@@ -161,7 +161,7 @@ This helps diagnose permission issues and verify correct command syntax.
 
 ## Service Control
 
-### POST /services/:serviceFilename/:toggleStatus
+### POST /services/control/:serviceFilename/:toggleStatus
 
 This endpoint controls systemd services by executing `systemctl` commands (start, stop, restart, enable, disable, reload).
 
@@ -251,6 +251,7 @@ nick,ALL=(root),NOPASSWD:,/usr/bin/mv,/home/nick/*.timer,/etc/systemd/system/
 ### How It Works
 
 **GET Endpoint:**
+
 - Accepts either `.service` or `.timer` filename
 - Parses base name and searches for both file types
 - Uses `sudo cat /etc/systemd/system/{filename}` to read files
@@ -258,6 +259,7 @@ nick,ALL=(root),NOPASSWD:,/usr/bin/mv,/home/nick/*.timer,/etc/systemd/system/
 - Enables retrieving current file contents before editing
 
 **POST Endpoint:**
+
 - Updates existing service or timer files only (will not create new files)
 - Validates filename exists in current machine's `servicesArray`
 - Checks file exists before allowing update
@@ -265,6 +267,7 @@ nick,ALL=(root),NOPASSWD:,/usr/bin/mv,/home/nick/*.timer,/etc/systemd/system/
 - Prevents unauthorized file creation by requiring pre-existing files
 
 **Typical Workflow:**
+
 1. Use GET to retrieve current file contents
 2. Modify contents in frontend
 3. Use POST to update the file

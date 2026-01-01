@@ -137,7 +137,7 @@ curl --location 'http://localhost:3000/services' \
 
 ---
 
-## POST /services/:serviceFilename/:toggleStatus
+## POST /services/control/:serviceFilename/:toggleStatus
 
 Control a service by starting, stopping, restarting, or performing other systemctl actions.
 

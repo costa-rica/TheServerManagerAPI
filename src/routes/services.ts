@@ -218,12 +218,12 @@ router.get("/", async (req: Request, res: Response) => {
   }
 });
 
-// 🔹 POST /services/:serviceFilename/:toggleStatus: Toggle service state
+// 🔹 POST /services/control/:serviceFilename/:toggleStatus: Toggle service state
 router.post(
-  "/:serviceFilename/:toggleStatus",
+  "/control/:serviceFilename/:toggleStatus",
   async (req: Request, res: Response) => {
     logger.info(
-      "[services route] POST /services/:serviceFilename/:toggleStatus - Request received"
+      "[services route] POST /services/control/:serviceFilename/:toggleStatus - Request received"
     );
     try {
       const { serviceFilename, toggleStatus } = req.params;
@@ -400,7 +400,7 @@ router.post(
       res.json(serviceStatus);
     } catch (error: any) {
       logger.error(
-        "[services route] Unhandled error in POST /services/:serviceFilename/:toggleStatus:",
+        "[services route] Unhandled error in POST /services/control/:serviceFilename/:toggleStatus:",
         error
       );
       res.status(500).json({
@@ -1180,9 +1180,12 @@ router.post("/npm/:name/:action", async (req: Request, res: Response) => {
 
 // 🔹 POST /services/make-service-file: Generate systemd service and timer files
 router.post("/make-service-file", async (req: Request, res: Response) => {
-  logger.info("[services route] POST /services/make-service-file - Request received");
+  logger.info(
+    "[services route] POST /services/make-service-file - Request received"
+  );
   try {
-    const { filenameServiceTemplate, filenameTimerTemplate, variables } = req.body;
+    const { filenameServiceTemplate, filenameTimerTemplate, variables } =
+      req.body;
 
     // Validate required fields
     if (!filenameServiceTemplate) {
@@ -1224,7 +1227,9 @@ router.post("/make-service-file", async (req: Request, res: Response) => {
         error: {
           code: "VALIDATION_ERROR",
           message: "Invalid service template",
-          details: `filenameServiceTemplate must be one of: ${VALID_SERVICE_TEMPLATES.join(", ")}`,
+          details: `filenameServiceTemplate must be one of: ${VALID_SERVICE_TEMPLATES.join(
+            ", "
+          )}`,
           status: 400,
         },
       });
@@ -1239,7 +1244,9 @@ router.post("/make-service-file", async (req: Request, res: Response) => {
         error: {
           code: "VALIDATION_ERROR",
           message: "Invalid timer template",
-          details: `filenameTimerTemplate must be one of: ${VALID_TIMER_TEMPLATES.join(", ")}`,
+          details: `filenameTimerTemplate must be one of: ${VALID_TIMER_TEMPLATES.join(
+            ", "
+          )}`,
           status: 400,
         },
       });
@@ -1286,7 +1293,9 @@ router.post("/make-service-file", async (req: Request, res: Response) => {
       serviceFilename
     );
 
-    logger.info(`[services route] Service file created: ${serviceResult.outputPath}`);
+    logger.info(
+      `[services route] Service file created: ${serviceResult.outputPath}`
+    );
 
     // Generate the timer file if requested
     let timerResult: { outputPath: string; content: string } | null = null;
@@ -1298,7 +1307,9 @@ router.post("/make-service-file", async (req: Request, res: Response) => {
         outputDirectory,
         timerFilename
       );
-      logger.info(`[services route] Timer file created: ${timerResult.outputPath}`);
+      logger.info(
+        `[services route] Timer file created: ${timerResult.outputPath}`
+      );
     }
 
     // Build response
@@ -1388,7 +1399,8 @@ router.get("/service-file/:filename", async (req: Request, res: Response) => {
         error: {
           code: "VALIDATION_ERROR",
           message: "Invalid filename format",
-          details: "Filename must include extension (e.g., app.service or app.timer)",
+          details:
+            "Filename must include extension (e.g., app.service or app.timer)",
           status: 400,
         },
       });
@@ -1400,7 +1412,9 @@ router.get("/service-file/:filename", async (req: Request, res: Response) => {
     const filenameTimer = `${baseName}.timer`;
 
     logger.info(`[services route] Base name: ${baseName}`);
-    logger.info(`[services route] Will search for: ${filenameService} and ${filenameTimer}`);
+    logger.info(
+      `[services route] Will search for: ${filenameService} and ${filenameTimer}`
+    );
 
     // Try to read both service and timer files using sudo cat
     let fileContentService: string | null = null;
@@ -1415,7 +1429,9 @@ router.get("/service-file/:filename", async (req: Request, res: Response) => {
       fileContentService = stdout;
       logger.info(`[services route] Successfully read ${filenameService}`);
     } catch (error: any) {
-      logger.warn(`[services route] Could not read ${filenameService}: ${error.message}`);
+      logger.warn(
+        `[services route] Could not read ${filenameService}: ${error.message}`
+      );
     }
 
     // Read .timer file
@@ -1427,7 +1443,9 @@ router.get("/service-file/:filename", async (req: Request, res: Response) => {
       fileContentTimer = stdout;
       logger.info(`[services route] Successfully read ${filenameTimer}`);
     } catch (error: any) {
-      logger.warn(`[services route] Could not read ${filenameTimer}: ${error.message}`);
+      logger.warn(
+        `[services route] Could not read ${filenameTimer}: ${error.message}`
+      );
     }
 
     // If neither file was found, return error
@@ -1580,15 +1598,11 @@ router.post("/service-file/:filename", async (req: Request, res: Response) => {
     const targetFilePath = path.join(serviceFilesPath, filename);
     try {
       const checkCommand = `sudo cat "${targetFilePath}"`;
-      logger.info(
-        `[services route] Checking if file exists: ${checkCommand}`
-      );
+      logger.info(`[services route] Checking if file exists: ${checkCommand}`);
       await execAsync(checkCommand);
       logger.info(`[services route] File exists: ${targetFilePath}`);
     } catch (error: any) {
-      logger.error(
-        `[services route] File does not exist: ${targetFilePath}`
-      );
+      logger.error(`[services route] File does not exist: ${targetFilePath}`);
       return res.status(404).json({
         error: {
           code: "NOT_FOUND",

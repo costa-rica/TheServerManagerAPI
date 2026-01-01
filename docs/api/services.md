@@ -537,11 +537,11 @@ curl --location 'http://localhost:3000/services/git/PersonalWeb03%20API' \
 
 **Response Fields:**
 
-| Field                    | Type     | Description                                                    |
-| ------------------------ | -------- | -------------------------------------------------------------- |
-| `gitBranchesLocalArray`  | String[] | Array of local branch names                                    |
-| `gitBranchesRemoteArray` | String[] | Array of remote branch names (with "origin/" prefix removed)   |
-| `currentBranch`          | String   | The currently checked out branch name                          |
+| Field                    | Type     | Description                                                  |
+| ------------------------ | -------- | ------------------------------------------------------------ |
+| `gitBranchesLocalArray`  | String[] | Array of local branch names                                  |
+| `gitBranchesRemoteArray` | String[] | Array of remote branch names (with "origin/" prefix removed) |
+| `currentBranch`          | String   | The currently checked out branch name                        |
 
 **Error Response (400 Bad Request - Not Production):**
 
@@ -1030,14 +1030,14 @@ Generate systemd service and timer files from templates with variable substituti
 
 **Request Body:**
 
-| Field                     | Type   | Required | Description                                                                                        |
-| ------------------------- | ------ | -------- | -------------------------------------------------------------------------------------------------- |
-| `filenameServiceTemplate` | String | Yes      | Service template filename: expressjs.service, flask.service, fastapi.service, nextjs.service, nodejsscript.service, or pythonscript.service |
-| `filenameTimerTemplate`   | String | No       | Timer template filename: nodejsscript.timer or pythonscript.timer                                  |
-| `variables`               | Object | Yes      | Object containing template variables                                                               |
-| `variables.project_name`  | String | Yes      | Project name (used as-is for PROJECT_NAME placeholder, auto-converted to lowercase for filenames) |
-| `variables.python_env_name` | String | No     | Python virtual environment name (required for Python templates)                                    |
-| `variables.port`          | Number | No       | Port number the application will run on (required for most templates)                              |
+| Field                       | Type   | Required | Description                                                                                                                                 |
+| --------------------------- | ------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `filenameServiceTemplate`   | String | Yes      | Service template filename: expressjs.service, flask.service, fastapi.service, nextjs.service, nodejsscript.service, or pythonscript.service |
+| `filenameTimerTemplate`     | String | No       | Timer template filename: nodejsscript.timer or pythonscript.timer                                                                           |
+| `variables`                 | Object | Yes      | Object containing template variables                                                                                                        |
+| `variables.project_name`    | String | Yes      | Project name (used as-is for PROJECT_NAME placeholder, auto-converted to lowercase for filenames)                                           |
+| `variables.python_env_name` | String | No       | Python virtual environment name (required for Python templates)                                                                             |
+| `variables.port`            | Number | No       | Port number the application will run on (required for most templates)                                                                       |
 
 **Sample Request (Express.js service only):**
 
@@ -1118,24 +1118,24 @@ curl --location --request POST 'http://localhost:3000/services/make-service-file
 
 **Response Fields:**
 
-| Field                       | Type   | Description                                                                  |
-| --------------------------- | ------ | ---------------------------------------------------------------------------- |
-| `message`                   | String | Success message                                                              |
-| `service`                   | Object | Service file information                                                     |
-| `service.template`          | String | Template filename that was used                                              |
-| `service.outputPath`        | String | Full path where the service file was written                                 |
-| `service.filename`          | String | Generated service filename (project_name_lowercase.service)                  |
-| `service.content`           | String | Complete content of the generated service file                               |
-| `timer`                     | Object | Timer file information (optional, only if filenameTimerTemplate was provided)|
-| `timer.template`            | String | Timer template filename that was used                                        |
-| `timer.outputPath`          | String | Full path where the timer file was written                                   |
-| `timer.filename`            | String | Generated timer filename (project_name_lowercase.timer)                      |
-| `timer.content`             | String | Complete content of the generated timer file                                 |
-| `variablesApplied`          | Object | All variables that were applied to the templates                             |
-| `variablesApplied.project_name` | String | Original project name as provided                                        |
-| `variablesApplied.project_name_lowercase` | String | Auto-generated lowercase version used for filenames            |
-| `variablesApplied.python_env_name` | String | Python environment name (if provided)                                 |
-| `variablesApplied.port`     | Number | Port number (if provided)                                                    |
+| Field                                     | Type   | Description                                                                   |
+| ----------------------------------------- | ------ | ----------------------------------------------------------------------------- |
+| `message`                                 | String | Success message                                                               |
+| `service`                                 | Object | Service file information                                                      |
+| `service.template`                        | String | Template filename that was used                                               |
+| `service.outputPath`                      | String | Full path where the service file was written                                  |
+| `service.filename`                        | String | Generated service filename (project_name_lowercase.service)                   |
+| `service.content`                         | String | Complete content of the generated service file                                |
+| `timer`                                   | Object | Timer file information (optional, only if filenameTimerTemplate was provided) |
+| `timer.template`                          | String | Timer template filename that was used                                         |
+| `timer.outputPath`                        | String | Full path where the timer file was written                                    |
+| `timer.filename`                          | String | Generated timer filename (project_name_lowercase.timer)                       |
+| `timer.content`                           | String | Complete content of the generated timer file                                  |
+| `variablesApplied`                        | Object | All variables that were applied to the templates                              |
+| `variablesApplied.project_name`           | String | Original project name as provided                                             |
+| `variablesApplied.project_name_lowercase` | String | Auto-generated lowercase version used for filenames                           |
+| `variablesApplied.python_env_name`        | String | Python environment name (if provided)                                         |
+| `variablesApplied.port`                   | Number | Port number (if provided)                                                     |
 
 **Error Response (400 Bad Request - Missing Required Field):**
 
@@ -1195,14 +1195,17 @@ curl --location --request POST 'http://localhost:3000/services/make-service-file
 **Template Requirements:**
 
 **Express.js / Next.js / Node.js Script:**
+
 - Required variables: `project_name`, `port`
 - Generated paths: `/home/nick/applications/{{PROJECT_NAME}}`
 
 **FastAPI / Flask / Python Script:**
+
 - Required variables: `project_name`, `python_env_name`, `port`
 - Generated paths: `/home/nick/applications/{{PROJECT_NAME}}`, `/home/nick/environments/{{PYTHON_ENV_NAME}}`
 
 **Timers (nodejsscript.timer / pythonscript.timer):**
+
 - Required variables: `project_name`
 - Auto-generates: `project_name_lowercase` for `Requires={{PROJECT_NAME_LOWERCASE}}.service` directive
 
@@ -1216,6 +1219,307 @@ curl --location --request POST 'http://localhost:3000/services/make-service-file
 - Python templates require `python_env_name` to specify the virtual environment path
 - Template files use `{{PLACEHOLDER}}` syntax (double curly braces)
 - All generated files follow systemd unit file format
-- Files must be manually moved/linked to `/etc/systemd/system/` and enabled with `systemctl`
+- Files are automatically written to `/etc/systemd/system/` using sudo mv (production) or `PATH_TO_SERVICE_FILES` (testing)
+
+---
+
+## GET /services/service-file/:filename
+
+Read the contents of a service and/or timer file. Accepts either a `.service` or `.timer` filename and returns both file types if they exist.
+
+**Authentication:** Required (JWT token)
+
+**Environment:** Production/Testing only (Ubuntu OS)
+
+**URL Parameters:**
+
+| Parameter  | Type   | Required | Description                                                        |
+| ---------- | ------ | -------- | ------------------------------------------------------------------ |
+| `filename` | String | Yes      | Service or timer filename (e.g., "myapp.service" or "myapp.timer") |
+
+**Sample Request:**
+
+```bash
+curl --location 'http://localhost:3000/services/service-file/myapp.service' \
+--header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+**Success Response (200 OK - Both Files Found):**
+
+```json
+{
+  "status": "success",
+  "filenameService": "myapp.service",
+  "filenameTimer": "myapp.timer",
+  "fileContentService": "[Unit]\nDescription=MyApp Service\nAfter=network.target\n\n[Service]\nType=simple\nUser=nick\nWorkingDirectory=/home/nick/applications/MyApp\nExecStart=/usr/bin/node /home/nick/applications/MyApp/dist/server.js\nRestart=on-failure\n\n[Install]\nWantedBy=multi-user.target",
+  "fileContentTimer": "[Unit]\nDescription=MyApp Timer\nRequires=myapp.service\n\n[Timer]\nOnCalendar=daily\nPersistent=true\n\n[Install]\nWantedBy=timers.target"
+}
+```
+
+**Success Response (200 OK - Only Service File Found):**
+
+```json
+{
+  "status": "success",
+  "filenameService": "myapp.service",
+  "filenameTimer": "myapp.timer",
+  "fileContentService": "[Unit]\nDescription=MyApp Service\n...",
+  "fileContentTimer": null
+}
+```
+
+**Response Fields:**
+
+| Field                | Type           | Description                                        |
+| -------------------- | -------------- | -------------------------------------------------- |
+| `status`             | String         | Status of the operation ("success")                |
+| `filenameService`    | String         | Service filename that was searched for             |
+| `filenameTimer`      | String         | Timer filename that was searched for               |
+| `fileContentService` | String \| null | Content of the .service file, or null if not found |
+| `fileContentTimer`   | String \| null | Content of the .timer file, or null if not found   |
+
+**Error Response (400 Bad Request - Not Production):**
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "This endpoint only works in production or testing environment on Ubuntu OS",
+    "status": 400
+  }
+}
+```
+
+**Error Response (400 Bad Request - Invalid Filename Format):**
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid filename format",
+    "details": "Filename must include extension (e.g., app.service or app.timer)",
+    "status": 400
+  }
+}
+```
+
+**Error Response (404 Not Found - No Files Found):**
+
+```json
+{
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Service files not found",
+    "details": "Neither myapp.service nor myapp.timer found in /etc/systemd/system/",
+    "status": 404
+  }
+}
+```
+
+**Error Response (500 Internal Server Error - Missing PATH_TO_SERVICE_FILES):**
+
+```json
+{
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "Server configuration error",
+    "details": "PATH_TO_SERVICE_FILES environment variable is not set",
+    "status": 500
+  }
+}
+```
+
+**Behavior:**
+
+- Parses filename to extract base name (splits on period)
+- Searches for both `{basename}.service` and `{basename}.timer` files
+- Uses `sudo cat` to read files from `PATH_TO_SERVICE_FILES` directory
+- Returns success if at least one file is found
+- Sets `null` for files that don't exist
+- Both files share the same base name (e.g., "myapp.service" and "myapp.timer" both use base name "myapp")
+- Only works when `NODE_ENV=production` or `NODE_ENV=testing` on Ubuntu servers
+
+**Notes:**
+
+- You can request either `.service` or `.timer` - both file types will be returned if they exist
+- Example: `GET /services/service-file/myapp.service` returns both myapp.service and myapp.timer
+- Example: `GET /services/service-file/myapp.timer` also returns both files
+- If only one file exists, the other will be `null` in the response
+- Files are read using sudo permissions from the PATH_TO_SERVICE_FILES directory
+- Use this endpoint before editing to get current file contents
+
+---
+
+## POST /services/service-file/:filename
+
+Update an existing service or timer file. Validates that the file exists and is configured for the current machine before allowing updates.
+
+**Authentication:** Required (JWT token)
+
+**Environment:** Production/Testing only (Ubuntu OS)
+
+**URL Parameters:**
+
+| Parameter  | Type   | Required | Description                                                                  |
+| ---------- | ------ | -------- | ---------------------------------------------------------------------------- |
+| `filename` | String | Yes      | Service or timer filename to update (e.g., "myapp.service" or "myapp.timer") |
+
+**Request Body:**
+
+| Field          | Type   | Required | Description                                   |
+| -------------- | ------ | -------- | --------------------------------------------- |
+| `fileContents` | String | Yes      | Complete content of the service or timer file |
+
+**Sample Request:**
+
+```bash
+curl --location --request POST 'http://localhost:3000/services/service-file/myapp.service' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \
+--data-raw '{
+  "fileContents": "[Unit]\nDescription=MyApp Service Updated\nAfter=network.target\n\n[Service]\nType=simple\nUser=nick\nWorkingDirectory=/home/nick/applications/MyApp\nExecStart=/usr/bin/node /home/nick/applications/MyApp/dist/server.js\nRestart=always\n\n[Install]\nWantedBy=multi-user.target"
+}'
+```
+
+**Success Response (200 OK):**
+
+```json
+{
+  "status": "success",
+  "message": "Service file updated successfully",
+  "filename": "myapp.service"
+}
+```
+
+**Response Fields:**
+
+| Field      | Type   | Description                         |
+| ---------- | ------ | ----------------------------------- |
+| `status`   | String | Status of the operation ("success") |
+| `message`  | String | Success message                     |
+| `filename` | String | Filename that was updated           |
+
+**Error Response (400 Bad Request - Not Production):**
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "This endpoint only works in production or testing environment on Ubuntu OS",
+    "status": 400
+  }
+}
+```
+
+**Error Response (400 Bad Request - Missing fileContents):**
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Request validation failed",
+    "details": "Missing or invalid 'fileContents' in request body",
+    "status": 400
+  }
+}
+```
+
+**Error Response (400 Bad Request - File Not Configured):**
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Service file not configured for this machine",
+    "details": "File \"myapp.service\" is not in this machine's servicesArray",
+    "status": 400
+  }
+}
+```
+
+**Error Response (404 Not Found - Machine Not Found):**
+
+```json
+{
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Machine not found in database",
+    "details": "Machine with name \"ubuntu-server-01\" not found in database",
+    "status": 404
+  }
+}
+```
+
+**Error Response (404 Not Found - No Services):**
+
+```json
+{
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "No services configured for this machine",
+    "details": "Machine \"ubuntu-server-01\" has no services configured in servicesArray",
+    "status": 404
+  }
+}
+```
+
+**Error Response (404 Not Found - File Doesn't Exist):**
+
+```json
+{
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Service file not found",
+    "details": "File \"myapp.service\" does not exist in /etc/systemd/system/",
+    "status": 404
+  }
+}
+```
+
+**Error Response (500 Internal Server Error - Missing PATH_TO_SERVICE_FILES):**
+
+```json
+{
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "Server configuration error",
+    "details": "PATH_TO_SERVICE_FILES environment variable is not set",
+    "status": 500
+  }
+}
+```
+
+**Error Response (500 Internal Server Error):**
+
+```json
+{
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "Failed to update service file",
+    "details": "Detailed error message (only in development mode)",
+    "status": 500
+  }
+}
+```
+
+**Behavior:**
+
+- Validates that `filename` exists in current machine's `servicesArray` (checks both `filename` and `filenameTimer` fields)
+- Uses `getMachineInfo()` to identify current machine by hostname
+- Checks that file exists in `PATH_TO_SERVICE_FILES` before allowing update
+- Writes new content to `/home/nick/{filename}` first (no sudo needed)
+- Uses `sudo mv "/home/nick/{filename}" "{PATH_TO_SERVICE_FILES}/"` to move file to system directory
+- Returns error if file doesn't exist (use POST `/services/make-service-file` to create new files)
+- Only works when `NODE_ENV=production` or `NODE_ENV=testing` on Ubuntu servers
+
+**Notes:**
+
+- This endpoint is for updating existing files only - it will not create new files
+- To create new service/timer files, use POST `/services/make-service-file`
+- The filename must be configured in the machine's `servicesArray` in MongoDB
+- File existence is checked before attempting update to prevent creating unauthorized files
+- After updating, you may need to reload systemd: `systemctl daemon-reload`
+- Then restart the service: `systemctl restart {servicename}`
+- Use GET `/services/service-file/:filename` first to retrieve current contents before editing
 
 ---

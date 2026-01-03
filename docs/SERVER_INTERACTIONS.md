@@ -48,7 +48,7 @@ DEST="/etc/sudoers.d/nick-systemctl"
 TMP="$(mktemp)"
 
 tail -n +2 "$CSV" | tr -d '\r' | \
-while IFS=, read -r user runas tag cmd action unit || [[ -n "$unit" ]]; do
+while IFS=, read -r user runas tag cmd action unit || [[ -n "$user" ]]; do
   echo "$user $runas $tag $cmd $action $unit"
 done > "$TMP"
 

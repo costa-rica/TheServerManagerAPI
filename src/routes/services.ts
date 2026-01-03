@@ -1672,4 +1672,377 @@ router.post("/service-file/:filename", async (req: Request, res: Response) => {
   }
 });
 
+// 🔹 GET /services/env-file/:name: Read .env and .env.local file contents
+router.get("/env-file/:name", async (req: Request, res: Response) => {
+  logger.info("[services route] GET /services/env-file/:name - Request received");
+  try {
+    const { name } = req.params;
+    logger.info(`[services route] Env file requested for service name: ${name}`);
+
+    // Check if running in production/testing/Ubuntu environment
+    if (
+      process.env.NODE_ENV !== "production" &&
+      process.env.NODE_ENV !== "testing"
+    ) {
+      return res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message:
+            "This endpoint only works in production or testing environment on Ubuntu OS",
+          status: 400,
+        },
+      });
+    }
+
+    // Get current machine info
+    const { machineName } = getMachineInfo();
+    logger.info(`[services route] Machine name from OS: ${machineName}`);
+
+    // Find the machine in the database by machineName
+    const machine = await Machine.findOne({ machineName });
+
+    if (!machine) {
+      return res.status(404).json({
+        error: {
+          code: "NOT_FOUND",
+          message: "Machine not found in database",
+          details: `Machine with name "${machineName}" not found in database`,
+          status: 404,
+        },
+      });
+    }
+
+    logger.info(`[services route] Machine found: ${machine.publicId}`);
+
+    // Check if machine has servicesArray
+    if (!machine.servicesArray || machine.servicesArray.length === 0) {
+      return res.status(404).json({
+        error: {
+          code: "NOT_FOUND",
+          message: "No services configured for this machine",
+          details: `Machine "${machineName}" has no services configured in servicesArray`,
+          status: 404,
+        },
+      });
+    }
+
+    // Find the service in the servicesArray by name
+    const service = machine.servicesArray.find((s) => s.name === name);
+
+    if (!service) {
+      return res.status(404).json({
+        error: {
+          code: "NOT_FOUND",
+          message: "Service not found",
+          details: `Service with name "${name}" not found in machine's servicesArray`,
+          status: 404,
+        },
+      });
+    }
+
+    logger.info(`[services route] Service found: ${service.name}`);
+
+    // Check if service has workingDirectory configured
+    if (!service.workingDirectory) {
+      return res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Working directory not configured",
+          details: `Service "${name}" does not have workingDirectory configured in servicesArray`,
+          status: 400,
+        },
+      });
+    }
+
+    logger.info(`[services route] Working directory: ${service.workingDirectory}`);
+
+    // Initialize response variables
+    let env: string | null = null;
+    let envStatus = false;
+    let envLocal: string | null = null;
+    let envLocalStatus = false;
+
+    // Try to read .env file
+    try {
+      const envPath = path.join(service.workingDirectory, ".env");
+      logger.info(`[services route] Attempting to read: ${envPath}`);
+      env = await fs.readFile(envPath, "utf-8");
+      envStatus = true;
+      logger.info(`[services route] Successfully read .env file`);
+    } catch (error: any) {
+      logger.info(`[services route] Could not read .env file: ${error.message}`);
+    }
+
+    // Try to read .env.local file
+    try {
+      const envLocalPath = path.join(service.workingDirectory, ".env.local");
+      logger.info(`[services route] Attempting to read: ${envLocalPath}`);
+      envLocal = await fs.readFile(envLocalPath, "utf-8");
+      envLocalStatus = true;
+      logger.info(`[services route] Successfully read .env.local file`);
+    } catch (error: any) {
+      logger.info(`[services route] Could not read .env.local file: ${error.message}`);
+    }
+
+    // Return success with whatever files were found (can all be null)
+    logger.info(`[services route] Returning env file contents`);
+    res.json({
+      status: "success",
+      env,
+      envStatus,
+      envLocal,
+      envLocalStatus,
+      workingDirectory: service.workingDirectory,
+    });
+  } catch (error: any) {
+    logger.error(
+      "[services route] Unhandled error in GET /services/env-file/:name:",
+      error
+    );
+    res.status(500).json({
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to read env file(s)",
+        details:
+          process.env.NODE_ENV !== "production"
+            ? error instanceof Error
+              ? error.message
+              : "Unknown error"
+            : undefined,
+        status: 500,
+      },
+    });
+  }
+});
+
+// 🔹 POST /services/env-file/:name: Update .env and/or .env.local file contents
+router.post("/env-file/:name", async (req: Request, res: Response) => {
+  logger.info("[services route] POST /services/env-file/:name - Request received");
+  try {
+    const { name } = req.params;
+    const { env, envLocal } = req.body;
+
+    logger.info(`[services route] Env file update requested for service name: ${name}`);
+
+    // Check if running in production/testing/Ubuntu environment
+    if (
+      process.env.NODE_ENV !== "production" &&
+      process.env.NODE_ENV !== "testing"
+    ) {
+      return res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message:
+            "This endpoint only works in production or testing environment on Ubuntu OS",
+          status: 400,
+        },
+      });
+    }
+
+    // Validate that at least one file content is provided
+    if (env === undefined && envLocal === undefined) {
+      return res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Request validation failed",
+          details: "At least one of 'env' or 'envLocal' must be provided in request body",
+          status: 400,
+        },
+      });
+    }
+
+    // Validate env content if provided
+    if (env !== undefined && env !== null) {
+      if (typeof env !== "string") {
+        return res.status(400).json({
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Request validation failed",
+            details: "'env' must be a string",
+            status: 400,
+          },
+        });
+      }
+
+      // Validate characters - allow: a-z A-Z 0-9 _ = # . - : / " ' @ space newline tab \r
+      const allowedPattern = /^[a-zA-Z0-9_=#.\-:/"' @\n\r\t]*$/;
+      if (!allowedPattern.test(env)) {
+        return res.status(400).json({
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Invalid characters in .env file content",
+            details: "Only alphanumeric and these special characters are allowed: _ = # . - : / \" ' @ space newline tab",
+            status: 400,
+          },
+        });
+      }
+    }
+
+    // Validate envLocal content if provided
+    if (envLocal !== undefined && envLocal !== null) {
+      if (typeof envLocal !== "string") {
+        return res.status(400).json({
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Request validation failed",
+            details: "'envLocal' must be a string",
+            status: 400,
+          },
+        });
+      }
+
+      // Validate characters - allow: a-z A-Z 0-9 _ = # . - : / " ' @ space newline tab \r
+      const allowedPattern = /^[a-zA-Z0-9_=#.\-:/"' @\n\r\t]*$/;
+      if (!allowedPattern.test(envLocal)) {
+        return res.status(400).json({
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Invalid characters in .env.local file content",
+            details: "Only alphanumeric and these special characters are allowed: _ = # . - : / \" ' @ space newline tab",
+            status: 400,
+          },
+        });
+      }
+    }
+
+    // Get current machine info
+    const { machineName } = getMachineInfo();
+    logger.info(`[services route] Machine name from OS: ${machineName}`);
+
+    // Find the machine in the database by machineName
+    const machine = await Machine.findOne({ machineName });
+
+    if (!machine) {
+      return res.status(404).json({
+        error: {
+          code: "NOT_FOUND",
+          message: "Machine not found in database",
+          details: `Machine with name "${machineName}" not found in database`,
+          status: 404,
+        },
+      });
+    }
+
+    logger.info(`[services route] Machine found: ${machine.publicId}`);
+
+    // Check if machine has servicesArray
+    if (!machine.servicesArray || machine.servicesArray.length === 0) {
+      return res.status(404).json({
+        error: {
+          code: "NOT_FOUND",
+          message: "No services configured for this machine",
+          details: `Machine "${machineName}" has no services configured in servicesArray`,
+          status: 404,
+        },
+      });
+    }
+
+    // Find the service in the servicesArray by name
+    const service = machine.servicesArray.find((s) => s.name === name);
+
+    if (!service) {
+      return res.status(404).json({
+        error: {
+          code: "NOT_FOUND",
+          message: "Service not found",
+          details: `Service with name "${name}" not found in machine's servicesArray`,
+          status: 404,
+        },
+      });
+    }
+
+    logger.info(`[services route] Service found: ${service.name}`);
+
+    // Check if service has workingDirectory configured
+    if (!service.workingDirectory) {
+      return res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Working directory not configured",
+          details: `Service "${name}" does not have workingDirectory configured in servicesArray`,
+          status: 400,
+        },
+      });
+    }
+
+    logger.info(`[services route] Working directory: ${service.workingDirectory}`);
+
+    // Initialize tracking for what was written
+    let envWritten = false;
+    let envLocalWritten = false;
+
+    // Write .env file if provided
+    if (env !== undefined && env !== null) {
+      try {
+        const envPath = path.join(service.workingDirectory, ".env");
+        logger.info(`[services route] Writing to: ${envPath}`);
+        await fs.writeFile(envPath, env, "utf-8");
+        envWritten = true;
+        logger.info(`[services route] Successfully wrote .env file`);
+      } catch (error: any) {
+        logger.error(`[services route] Failed to write .env file: ${error.message}`);
+        return res.status(500).json({
+          error: {
+            code: "INTERNAL_ERROR",
+            message: "Failed to write .env file",
+            details:
+              process.env.NODE_ENV !== "production" ? error.message : undefined,
+            status: 500,
+          },
+        });
+      }
+    }
+
+    // Write .env.local file if provided
+    if (envLocal !== undefined && envLocal !== null) {
+      try {
+        const envLocalPath = path.join(service.workingDirectory, ".env.local");
+        logger.info(`[services route] Writing to: ${envLocalPath}`);
+        await fs.writeFile(envLocalPath, envLocal, "utf-8");
+        envLocalWritten = true;
+        logger.info(`[services route] Successfully wrote .env.local file`);
+      } catch (error: any) {
+        logger.error(`[services route] Failed to write .env.local file: ${error.message}`);
+        return res.status(500).json({
+          error: {
+            code: "INTERNAL_ERROR",
+            message: "Failed to write .env.local file",
+            details:
+              process.env.NODE_ENV !== "production" ? error.message : undefined,
+            status: 500,
+          },
+        });
+      }
+    }
+
+    // Return success
+    logger.info(`[services route] Env file(s) updated successfully`);
+    res.json({
+      status: "success",
+      message: "Env file(s) updated successfully",
+      envWritten,
+      envLocalWritten,
+      workingDirectory: service.workingDirectory,
+    });
+  } catch (error: any) {
+    logger.error(
+      "[services route] Unhandled error in POST /services/env-file/:name:",
+      error
+    );
+    res.status(500).json({
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to update env file(s)",
+        details:
+          process.env.NODE_ENV !== "production"
+            ? error instanceof Error
+              ? error.message
+              : "Unknown error"
+            : undefined,
+        status: 500,
+      },
+    });
+  }
+});
+
 export default router;

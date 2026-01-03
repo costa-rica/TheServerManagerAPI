@@ -1523,3 +1523,340 @@ curl --location --request POST 'http://localhost:3000/services/service-file/myap
 - Use GET `/services/service-file/:filename` first to retrieve current contents before editing
 
 ---
+
+## GET /services/env-file/:name
+
+Retrieves the contents of `.env` and `.env.local` files from a service's working directory.
+
+**URL:** `/services/env-file/:name`
+
+**Method:** `GET`
+
+**Auth required:** Yes (JWT)
+
+**Path Parameters:**
+
+- `name` (string, required) - The service name as configured in the machine's `servicesArray`
+
+**Success Response (200 OK):**
+
+```json
+{
+  "status": "success",
+  "env": "PORT=3000\nDATABASE_URL=mongodb://localhost:27017\nJWT_SECRET=mysecret123\n",
+  "envStatus": true,
+  "envLocal": "NODE_ENV=production\nDEBUG=true\n",
+  "envLocalStatus": true,
+  "workingDirectory": "/home/nick/my-api"
+}
+```
+
+**Success Response (200 OK) - Files not found:**
+
+```json
+{
+  "status": "success",
+  "env": null,
+  "envStatus": false,
+  "envLocal": null,
+  "envLocalStatus": false,
+  "workingDirectory": "/home/nick/my-api"
+}
+```
+
+**Error Response (400 Bad Request):**
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "This endpoint only works in production or testing environment on Ubuntu OS",
+    "status": 400
+  }
+}
+```
+
+**Error Response (400 Bad Request):**
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Working directory not configured",
+    "details": "Service \"my-api\" does not have workingDirectory configured in servicesArray",
+    "status": 400
+  }
+}
+```
+
+**Error Response (404 Not Found):**
+
+```json
+{
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Machine not found in database",
+    "details": "Machine with name \"ubuntu-server-01\" not found in database",
+    "status": 404
+  }
+}
+```
+
+**Error Response (404 Not Found):**
+
+```json
+{
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Service not found",
+    "details": "Service with name \"my-api\" not found in machine's servicesArray",
+    "status": 404
+  }
+}
+```
+
+**Error Response (500 Internal Server Error):**
+
+```json
+{
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "Failed to read env file(s)",
+    "details": "Detailed error message (only in development mode)",
+    "status": 500
+  }
+}
+```
+
+**Example Usage:**
+
+```bash
+curl --location --request GET 'http://localhost:3000/services/env-file/my-api' \
+--header 'Authorization: Bearer YOUR_JWT_TOKEN'
+```
+
+**Behavior:**
+
+- Uses `getMachineInfo()` to identify current machine by hostname
+- Finds the service in machine's `servicesArray` by matching the `name` field
+- Retrieves the service's `workingDirectory` path
+- Attempts to read `.env` file from `{workingDirectory}/.env`
+- Attempts to read `.env.local` file from `{workingDirectory}/.env.local`
+- Returns both files with status flags - missing files return `null` and `false` status
+- Does not require sudo permissions (files are in user-accessible directories)
+- Only works when `NODE_ENV=production` or `NODE_ENV=testing` on Ubuntu servers
+
+**Response Fields:**
+
+- `env` - Contents of `.env` file (string or null if file doesn't exist)
+- `envStatus` - Boolean indicating if `.env` file was found and read successfully
+- `envLocal` - Contents of `.env.local` file (string or null if file doesn't exist)
+- `envLocalStatus` - Boolean indicating if `.env.local` file was found and read successfully
+- `workingDirectory` - The directory path where files were searched
+
+**Notes:**
+
+- Both files can be missing without causing an error - the endpoint returns `null` for missing files
+- The service must have `workingDirectory` configured in its `servicesArray` entry
+- File contents are returned as-is with original formatting and line endings
+- No character validation on read - validation only occurs on write (POST endpoint)
+- Useful for retrieving current configuration before editing via POST endpoint
+
+---
+
+## POST /services/env-file/:name
+
+Updates the contents of `.env` and/or `.env.local` files in a service's working directory.
+
+**URL:** `/services/env-file/:name`
+
+**Method:** `POST`
+
+**Auth required:** Yes (JWT)
+
+**Path Parameters:**
+
+- `name` (string, required) - The service name as configured in the machine's `servicesArray`
+
+**Request Body:**
+
+```json
+{
+  "env": "PORT=3000\nDATABASE_URL=mongodb://localhost:27017\nJWT_SECRET=mysecret123\n",
+  "envLocal": "NODE_ENV=production\nDEBUG=true\n"
+}
+```
+
+**Request Body (partial update):**
+
+```json
+{
+  "env": "PORT=3000\nDATABASE_URL=mongodb://localhost:27017\n"
+}
+```
+
+**Body Parameters:**
+
+- `env` (string, optional) - Contents to write to `.env` file. If provided (even as empty string), will overwrite the file
+- `envLocal` (string, optional) - Contents to write to `.env.local` file. If provided (even as empty string), will overwrite the file
+- At least one of `env` or `envLocal` must be provided
+
+**Success Response (200 OK):**
+
+```json
+{
+  "status": "success",
+  "message": "Env file(s) updated successfully",
+  "envWritten": true,
+  "envLocalWritten": true,
+  "workingDirectory": "/home/nick/my-api"
+}
+```
+
+**Success Response (200 OK) - Partial update:**
+
+```json
+{
+  "status": "success",
+  "message": "Env file(s) updated successfully",
+  "envWritten": true,
+  "envLocalWritten": false,
+  "workingDirectory": "/home/nick/my-api"
+}
+```
+
+**Error Response (400 Bad Request):**
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Request validation failed",
+    "details": "At least one of 'env' or 'envLocal' must be provided in request body",
+    "status": 400
+  }
+}
+```
+
+**Error Response (400 Bad Request):**
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid characters in .env file content",
+    "details": "Only alphanumeric and these special characters are allowed: _ = # . - : / \" ' @ space newline tab",
+    "status": 400
+  }
+}
+```
+
+**Error Response (400 Bad Request):**
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Working directory not configured",
+    "details": "Service \"my-api\" does not have workingDirectory configured in servicesArray",
+    "status": 400
+  }
+}
+```
+
+**Error Response (404 Not Found):**
+
+```json
+{
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Service not found",
+    "details": "Service with name \"my-api\" not found in machine's servicesArray",
+    "status": 404
+  }
+}
+```
+
+**Error Response (500 Internal Server Error):**
+
+```json
+{
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "Failed to write .env file",
+    "details": "EACCES: permission denied (only in development mode)",
+    "status": 500
+  }
+}
+```
+
+**Example Usage:**
+
+```bash
+curl --location --request POST 'http://localhost:3000/services/env-file/my-api' \
+--header 'Authorization: Bearer YOUR_JWT_TOKEN' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+  "env": "PORT=3000\nDATABASE_URL=mongodb://localhost:27017\nJWT_SECRET=newsecret456\n",
+  "envLocal": "NODE_ENV=production\nDEBUG=false\n"
+}'
+```
+
+**Example Usage (update only .env.local):**
+
+```bash
+curl --location --request POST 'http://localhost:3000/services/env-file/my-api' \
+--header 'Authorization: Bearer YOUR_JWT_TOKEN' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+  "envLocal": "NODE_ENV=development\nDEBUG=true\n"
+}'
+```
+
+**Behavior:**
+
+- Validates that at least one of `env` or `envLocal` is provided
+- Validates content against character whitelist: `a-z A-Z 0-9 _ = # . - : / " ' @ space newline tab`
+- Uses `getMachineInfo()` to identify current machine by hostname
+- Finds the service in machine's `servicesArray` by matching the `name` field
+- Retrieves the service's `workingDirectory` path
+- Writes `.env` file to `{workingDirectory}/.env` if `env` provided (creates or overwrites)
+- Writes `.env.local` file to `{workingDirectory}/.env.local` if `envLocal` provided (creates or overwrites)
+- Does not require sudo permissions (files are in user-accessible directories)
+- Only works when `NODE_ENV=production` or `NODE_ENV=testing` on Ubuntu servers
+
+**Response Fields:**
+
+- `envWritten` - Boolean indicating if `.env` file was successfully written
+- `envLocalWritten` - Boolean indicating if `.env.local` file was successfully written
+- `workingDirectory` - The directory path where files were written
+
+**Character Validation:**
+
+The endpoint validates file contents to prevent shell injection and malicious code. Allowed characters:
+
+- Alphanumeric: `a-z`, `A-Z`, `0-9`
+- Underscore: `_` (for variable names like `DB_HOST`)
+- Equals: `=` (for key-value pairs)
+- Hash: `#` (for comments)
+- Period: `.` (for domains, IP addresses)
+- Hyphen: `-` (for domains, kebab-case)
+- Colon: `:` (for URLs, ports)
+- Forward slash: `/` (for paths, URLs)
+- Quotes: `"` and `'` (for string values)
+- At sign: `@` (for emails, connection strings)
+- Space: ` ` (for formatted values)
+- Newline: `\n` and `\r` (for line breaks)
+- Tab: `\t` (for formatting)
+
+**Notes:**
+
+- Creates files if they don't exist (unlike the service-file POST endpoint which requires existing files)
+- Character validation prevents injection attacks while allowing standard .env syntax
+- Either or both files can be updated in a single request
+- Files are completely overwritten - partial line updates must be done by reading, modifying, and writing back
+- After updating env files, restart the service to load new values: POST `/services/control/:serviceFilename/restart`
+- Changes take effect only after service restart (env variables are loaded at startup)
+- Use GET `/services/env-file/:name` first to retrieve current contents before editing
+
+---

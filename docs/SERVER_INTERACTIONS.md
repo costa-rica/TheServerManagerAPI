@@ -278,6 +278,109 @@ This approach provides a safe edit workflow while maintaining security through v
 
 ---
 
+## Environment File Management
+
+### GET /services/env-file/:name and POST /services/env-file/:name
+
+These endpoints enable reading and updating `.env` and `.env.local` files in the service's working directory. Unlike systemd service files, these do not require sudo permissions since they reside in user-accessible directories.
+
+### No Sudo Required
+
+Environment files are stored in the service's `workingDirectory` (as configured in the machine's `servicesArray`), which is typically owned by the application user (e.g., `/home/nick/my-app/`). Therefore:
+
+- No sudo permissions needed for reading or writing
+- Files are accessed using standard Node.js `fs` API
+- Direct file system access without shell commands
+
+### How It Works
+
+**GET Endpoint:**
+
+- Accepts service `name` from machine's `servicesArray`
+- Queries database to find service by name
+- Retrieves `workingDirectory` from service configuration
+- Attempts to read both `.env` and `.env.local` files
+- Returns response with 4 fields:
+  - `env`: Contents of `.env` file (or `null` if not found)
+  - `envStatus`: `true` if `.env` exists, `false` otherwise
+  - `envLocal`: Contents of `.env.local` file (or `null` if not found)
+  - `envLocalStatus`: `true` if `.env.local` exists, `false` otherwise
+- Either or both files can be missing without causing errors
+
+**POST Endpoint:**
+
+- Accepts service `name` and file contents in request body: `{ env, envLocal }`
+- Either or both fields can be provided
+- Validates content against character whitelist (alphanumeric plus: `_ = # . - : / " ' @ space newline tab`)
+- Finds service's `workingDirectory` from database
+- Writes `.env` if `env` field provided (creates file if doesn't exist)
+- Writes `.env.local` if `envLocal` field provided (creates file if doesn't exist)
+- Returns success with `envWritten` and `envLocalWritten` boolean flags
+
+**Security Validations:**
+
+- Character whitelist prevents shell injection and malicious content
+- Service name must exist in machine's `servicesArray`
+- Working directory must be configured for the service
+- Content type validation ensures strings only
+- Invalid characters are rejected before file write
+
+**Typical Workflow:**
+
+1. Frontend calls GET to retrieve current `.env` and `.env.local` contents
+2. User edits environment variables in the UI
+3. Frontend calls POST with updated content(s)
+4. Service restart required to load new environment variables
+5. Use POST `/services/control/:serviceFilename/restart` to apply changes
+
+### Example Response Structure
+
+**GET /services/env-file/my-api:**
+
+```json
+{
+  "status": "success",
+  "env": "PORT=3000\nDATABASE_URL=mongodb://localhost:27017\n",
+  "envStatus": true,
+  "envLocal": null,
+  "envLocalStatus": false,
+  "workingDirectory": "/home/nick/my-api"
+}
+```
+
+**POST /services/env-file/my-api:**
+
+Request:
+```json
+{
+  "env": "PORT=3000\nDATABASE_URL=mongodb://localhost:27017\n",
+  "envLocal": "NODE_ENV=production\nDEBUG=true\n"
+}
+```
+
+Response:
+```json
+{
+  "status": "success",
+  "message": "Env file(s) updated successfully",
+  "envWritten": true,
+  "envLocalWritten": true,
+  "workingDirectory": "/home/nick/my-api"
+}
+```
+
+### Environment File Precedence
+
+Most Node.js applications load environment files in this order (higher priority last):
+
+1. `.env` - Base configuration, committed to git
+2. `.env.local` - Local overrides, gitignored
+3. Process environment variables - Highest priority
+
+The Server Manager API returns both files, allowing the frontend to manage each independently based on the application's environment strategy.
+
+---
+
 ## Best Practices
 
 ### Adding New Services

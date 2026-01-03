@@ -231,6 +231,80 @@ curl --location 'http://localhost:3000/machines/check-nick-systemctl' \
 
 ---
 
+## GET /machines/syslog
+
+Get the entire system log file from `/var/log/syslog`.
+
+**Authentication:** Required (JWT token)
+
+**Sample Request:**
+
+```bash
+curl --location 'http://localhost:3000/machines/syslog' \
+--header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+**Success Response (200 OK):**
+
+Returns the entire syslog file as plain text with `Content-Type: text/plain` header.
+
+```
+Jan  3 10:15:23 ubuntu-server-01 systemd[1]: Started Session 123 of user ubuntu.
+Jan  3 10:15:24 ubuntu-server-01 kernel: [12345.678901] eth0: link up
+Jan  3 10:15:25 ubuntu-server-01 sshd[9876]: Accepted publickey for ubuntu from 192.168.1.50
+...
+```
+
+**Error Response (404 Not Found - File Does Not Exist):**
+
+```json
+{
+  "error": {
+    "code": "FILE_NOT_FOUND",
+    "message": "Syslog file not found",
+    "details": "The file /var/log/syslog does not exist",
+    "status": 404
+  }
+}
+```
+
+**Error Response (403 Forbidden - Permission Denied):**
+
+```json
+{
+  "error": {
+    "code": "PERMISSION_DENIED",
+    "message": "Permission denied to read syslog file",
+    "details": "Insufficient permissions to read /var/log/syslog",
+    "status": 403
+  }
+}
+```
+
+**Error Response (500 Internal Server Error):**
+
+```json
+{
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "Failed to read syslog file",
+    "details": "Detailed error message (only in development mode)",
+    "status": 500
+  }
+}
+```
+
+**Behavior:**
+
+- Returns the entire `/var/log/syslog` file contents as plain text
+- Does not perform any filtering or truncation
+- File size can be very large depending on system logging configuration
+- Response includes `Content-Type: text/plain` header
+- Available to all authenticated users (not restricted to admins)
+- `details` field in errors is only populated in development (NODE_ENV !== 'production')
+
+---
+
 ## GET /machines
 
 Get all registered machines in the system.

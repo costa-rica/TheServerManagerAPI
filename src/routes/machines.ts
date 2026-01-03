@@ -1,6 +1,7 @@
 import express from "express";
 import type { Request, Response } from "express";
 import { randomUUID } from "crypto";
+import { promises as fs } from "fs";
 import { Machine } from "../models/machine";
 import { checkBodyReturnMissing } from "../modules/common";
 import {
@@ -24,6 +25,66 @@ router.get("/name", authenticateToken, (req: Request, res: Response) => {
       error: {
         code: "INTERNAL_ERROR",
         message: "Failed to retrieve machine information",
+        details:
+          process.env.NODE_ENV !== "production" ? error.message : undefined,
+        status: 500,
+      },
+    });
+  }
+});
+
+// 🔹 GET /machines/syslog: Get the entire syslog file
+router.get("/syslog", authenticateToken, async (req: Request, res: Response) => {
+  try {
+    logger.info("[machines.ts] GET /machines/syslog - Reading syslog file");
+
+    const syslogPath = "/var/log/syslog";
+    const syslogContent = await fs.readFile(syslogPath, "utf-8");
+
+    logger.info(
+      `[machines.ts] Successfully read syslog file (${syslogContent.length} characters)`
+    );
+
+    // Set content type to plain text and send the file content
+    res.setHeader("Content-Type", "text/plain");
+    res.status(200).send(syslogContent);
+  } catch (error: any) {
+    logger.error("[machines.ts] Error reading syslog file:", error);
+
+    // Handle specific error cases
+    if (error.code === "ENOENT") {
+      return res.status(404).json({
+        error: {
+          code: "FILE_NOT_FOUND",
+          message: "Syslog file not found",
+          details:
+            process.env.NODE_ENV !== "production"
+              ? "The file /var/log/syslog does not exist"
+              : undefined,
+          status: 404,
+        },
+      });
+    }
+
+    if (error.code === "EACCES") {
+      return res.status(403).json({
+        error: {
+          code: "PERMISSION_DENIED",
+          message: "Permission denied to read syslog file",
+          details:
+            process.env.NODE_ENV !== "production"
+              ? "Insufficient permissions to read /var/log/syslog"
+              : undefined,
+          status: 403,
+        },
+      });
+    }
+
+    // Generic error for other cases
+    res.status(500).json({
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to read syslog file",
         details:
           process.env.NODE_ENV !== "production" ? error.message : undefined,
         status: 500,

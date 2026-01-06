@@ -2,43 +2,69 @@
  * Winston Logger Configuration for The Server Manager API
  *
  * This module configures Winston logging for the parent process.
- * Based on LOGGING_NODE_JS_V03.md documentation.
+ * Based on LOGGING_NODE_JS_V04.md documentation.
  *
  * Environment Variables Required:
  * - NODE_ENV: Environment mode (development/testing/production)
  * - NAME_APP: Application identifier for log filenames
  * - PATH_TO_LOGS: Directory path for log file storage (testing & production)
- * - LOG_MAX_SIZE: Maximum size per log file (optional, default: 10MB)
- * - LOG_MAX_FILES: Maximum number of log files to retain (optional, default: 10)
+ * - LOG_MAX_SIZE: Maximum size per log file in MB (optional, default: 5)
+ * - LOG_MAX_FILES: Maximum number of log files to retain (optional, default: 5)
  *
- * V03 Three-Tier Behavior:
- * - development: Console output, all log levels (debug+)
- * - testing: File output, info+ levels (error, warn, info, http)
- * - production: File output, error level only
+ * V04 Three-Tier Behavior:
+ * - development: Console output only, all log levels (debug+)
+ * - testing: Console AND file output, info+ levels (error, warn, info, http)
+ * - production: File output only, info+ levels (error, warn, info, http)
  */
 
 import winston from "winston";
 import path from "path";
 
+// ========================================
+// V04 Requirement: Startup Validation
+// Validate required environment variables before logger initialization
+// ========================================
+const requiredEnvVars = ["NODE_ENV", "NAME_APP", "PATH_TO_LOGS"];
+const missingVars: string[] = [];
+
+for (const varName of requiredEnvVars) {
+  if (!process.env[varName]) {
+    missingVars.push(varName);
+  }
+}
+
+if (missingVars.length > 0) {
+  console.error(
+    `[FATAL ERROR] Missing required environment variable(s): ${missingVars.join(", ")}`
+  );
+  console.error(
+    "Logger cannot be initialized. Please set the required variables in your .env file."
+  );
+  process.exit(1);
+}
+
 // Determine environment
-const nodeEnv = process.env.NODE_ENV || "development";
+const nodeEnv = process.env.NODE_ENV!; // Safe to use ! after validation
 const isProduction = nodeEnv === "production";
 const isTesting = nodeEnv === "testing";
 const isDevelopment = nodeEnv === "development";
 
-const appName = process.env.NAME_APP || "app";
-const logDir = process.env.PATH_TO_LOGS || "./logs";
-const maxSize = parseInt(process.env.LOG_MAX_SIZE || "10485760"); // 10MB default
-const maxFiles = parseInt(process.env.LOG_MAX_FILES || "10");
+const appName = process.env.NAME_APP!; // Safe to use ! after validation
+const logDir = process.env.PATH_TO_LOGS!; // Safe to use ! after validation
+
+// V04: LOG_MAX_SIZE is in megabytes, convert to bytes for Winston
+const maxSizeMB = parseInt(process.env.LOG_MAX_SIZE || "5"); // 5MB default (V04)
+const maxSize = maxSizeMB * 1024 * 1024; // Convert MB to bytes
+const maxFiles = parseInt(process.env.LOG_MAX_FILES || "5"); // 5 files default (V04)
 
 // Determine log level based on environment
 let logLevel: string;
 if (isProduction) {
-  logLevel = "error"; // Only errors in production
+  logLevel = "info"; // V04: Info and above in production (error, warn, info, http)
 } else if (isTesting) {
-  logLevel = "info"; // Info and above in testing
+  logLevel = "info"; // V04: Info and above in testing (error, warn, info, http)
 } else {
-  logLevel = "debug"; // All levels in development
+  logLevel = "debug"; // V04: All levels in development (debug+)
 }
 
 // Define log format for production (human-readable with timestamps)
@@ -69,8 +95,11 @@ const logger = winston.createLogger({
 });
 
 // Add transports based on environment
-if (isProduction || isTesting) {
-  // Production and Testing: Write to rotating log files
+if (isDevelopment) {
+  // V04 Development: Console output only with colors
+  logger.add(new winston.transports.Console());
+} else if (isTesting) {
+  // V04 Testing: BOTH console AND file output
   logger.add(
     new winston.transports.File({
       filename: path.join(logDir, `${appName}.log`),
@@ -79,20 +108,28 @@ if (isProduction || isTesting) {
       tailable: true,
     })
   );
-} else {
-  // Development: Console output with colors
   logger.add(new winston.transports.Console());
+} else if (isProduction) {
+  // V04 Production: File output only
+  logger.add(
+    new winston.transports.File({
+      filename: path.join(logDir, `${appName}.log`),
+      maxsize: maxSize,
+      maxFiles: maxFiles,
+      tailable: true,
+    })
+  );
 }
 
 // Log initialization
 let environmentMode: string;
 if (isProduction) {
-  environmentMode = "production (error-only logging)";
+  environmentMode = "production (file output, info+ levels)";
 } else if (isTesting) {
-  environmentMode = "testing (file-based logging)";
+  environmentMode = "testing (console + file output, info+ levels)";
 } else {
-  environmentMode = "development (console logging)";
+  environmentMode = "development (console output, debug+ levels)";
 }
-logger.info(`Logger V03 initialized for ${appName} in ${environmentMode}`);
+logger.info(`Logger V04 initialized for ${appName} in ${environmentMode}`);
 
 export default logger;

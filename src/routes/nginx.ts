@@ -482,6 +482,10 @@ router.delete("/clear", async (req: Request, res: Response) => {
 
 // 🔹 GET /nginx/config-file/:nginxFilePublicId: Get nginx config file contents
 router.get("/config-file/:nginxFilePublicId", async (req: Request, res: Response) => {
+  const { exec } = require("child_process");
+  const { promisify } = require("util");
+  const execAsync = promisify(exec);
+
   try {
     const { nginxFilePublicId } = req.params;
 
@@ -513,19 +517,23 @@ router.get("/config-file/:nginxFilePublicId", async (req: Request, res: Response
     // Construct file path
     const filePath = path.join(config.storeDirectory, config.serverName);
 
-    // Read the file
+    // Read the file using sudo cat
     try {
-      const content = await fs.promises.readFile(filePath, "utf-8");
-      logger.info(`📖 Read nginx config file: ${filePath}`);
+      const command = `sudo cat "${filePath}"`;
+      logger.info(`📖 Executing: ${command}`);
+      const { stdout } = await execAsync(command);
+      logger.info(`📖 Successfully read nginx config file: ${filePath}`);
 
       res.json({
-        content,
+        content: stdout,
         filePath,
         serverName: config.serverName,
       });
     } catch (error: any) {
       // Handle file read errors
-      if (error.code === "ENOENT") {
+      logger.error(`❌ Failed to read file: ${error.message}`);
+
+      if (error.message.includes("No such file or directory")) {
         return res.status(404).json({
           error: {
             code: "NOT_FOUND",
@@ -537,7 +545,7 @@ router.get("/config-file/:nginxFilePublicId", async (req: Request, res: Response
             status: 404,
           },
         });
-      } else if (error.code === "EACCES") {
+      } else if (error.message.includes("Permission denied")) {
         return res.status(500).json({
           error: {
             code: "INTERNAL_ERROR",
@@ -573,6 +581,10 @@ router.get("/config-file/:nginxFilePublicId", async (req: Request, res: Response
 
 // 🔹 POST /nginx/config-file/:nginxFilePublicId: Update nginx config file with validation
 router.post("/config-file/:nginxFilePublicId", async (req: Request, res: Response) => {
+  const { exec } = require("child_process");
+  const { promisify } = require("util");
+  const execAsync = promisify(exec);
+
   try {
     const { nginxFilePublicId } = req.params;
     const { content } = req.body;
@@ -614,91 +626,89 @@ router.post("/config-file/:nginxFilePublicId", async (req: Request, res: Respons
       });
     }
 
-    // Construct file path
-    const filePath = path.join(config.storeDirectory, config.serverName);
-    const backupPath = `${filePath}.backup.${Date.now()}`;
+    // Construct file paths
+    const fileName = config.serverName;
+    const nginxFilePath = path.join(config.storeDirectory, fileName);
+    const backupFileName = `${fileName}.backup.${Date.now()}`;
+    const backupFilePath = path.join(config.storeDirectory, backupFileName);
+    const tmpFilePath = path.join("/home/nick", fileName);
 
-    logger.info(`📝 Updating nginx config file: ${filePath}`);
-    logger.info(`📝 Store directory: ${config.storeDirectory}`);
-    logger.info(`📝 Server name: ${config.serverName}`);
-    logger.info(`📝 Backup path: ${backupPath}`);
+    logger.info(`📝 Updating nginx config file: ${nginxFilePath}`);
+    logger.info(`📝 Backup path: ${backupFilePath}`);
+    logger.info(`📝 Temp path: ${tmpFilePath}`);
 
     try {
-      // Step 1: Create backup of original file
+      // Step 1: Create backup of original file using sudo cp
       try {
-        logger.info(`💾 Attempting to create backup using fs.copyFile...`);
-        logger.info(`💾 Source: ${filePath}`);
-        logger.info(`💾 Destination: ${backupPath}`);
-        await fs.promises.copyFile(filePath, backupPath);
-        logger.info(`💾 Created backup: ${backupPath}`);
+        const backupCommand = `sudo cp "${nginxFilePath}" "${backupFilePath}"`;
+        logger.info(`💾 Executing: ${backupCommand}`);
+        await execAsync(backupCommand);
+        logger.info(`💾 Created backup: ${backupFilePath}`);
       } catch (error: any) {
-        logger.error(`❌ Backup creation failed with error code: ${error.code}`);
-        logger.error(`❌ Error message: ${error.message}`);
-        logger.error(`❌ Full error:`, error);
-        if (error.code === "ENOENT") {
+        logger.error(`❌ Backup creation failed: ${error.message}`);
+        if (error.message.includes("No such file or directory")) {
           return res.status(404).json({
             error: {
               code: "NOT_FOUND",
               message: "Configuration file not found on disk",
               details:
                 process.env.NODE_ENV !== "production"
-                  ? `File not found: ${filePath}`
+                  ? `File not found: ${nginxFilePath}`
                   : undefined,
               status: 404,
             },
           });
-        } else if (error.code === "EACCES") {
+        } else {
           return res.status(500).json({
             error: {
               code: "INTERNAL_ERROR",
               message: "Permission denied creating backup",
               details:
                 process.env.NODE_ENV !== "production"
-                  ? `Access denied: ${filePath}`
+                  ? error.message
                   : undefined,
               status: 500,
             },
           });
-        } else {
-          throw error;
         }
       }
 
-      // Step 2: Write new content to file
+      // Step 2: Write new content to /home/nick/ (no sudo needed)
       try {
-        logger.info(`✍️  Attempting to write new content to: ${filePath}`);
+        logger.info(`✍️  Writing new content to temp file: ${tmpFilePath}`);
         logger.info(`✍️  Content length: ${content.length} characters`);
-        await fs.promises.writeFile(filePath, content, "utf-8");
-        logger.info(`✍️  Successfully wrote new content to: ${filePath}`);
+        await fs.promises.writeFile(tmpFilePath, content, "utf-8");
+        logger.info(`✍️  Successfully wrote temp file: ${tmpFilePath}`);
       } catch (error: any) {
-        logger.error(`❌ Write failed with error code: ${error.code}`);
-        logger.error(`❌ Write error message: ${error.message}`);
-        // Restore backup on write failure
-        await fs.promises.rename(backupPath, filePath);
-        logger.error(`❌ Failed to write new content, restored backup`);
-
-        if (error.code === "EACCES") {
-          return res.status(500).json({
-            error: {
-              code: "INTERNAL_ERROR",
-              message: "Permission denied writing configuration file",
-              details:
-                process.env.NODE_ENV !== "production"
-                  ? `Access denied: ${filePath}`
-                  : undefined,
-              status: 500,
-            },
-          });
-        } else {
-          throw error;
+        logger.error(`❌ Write to temp file failed: ${error.message}`);
+        // Clean up backup
+        try {
+          await execAsync(`sudo rm "${backupFilePath}"`);
+        } catch (cleanupError) {
+          // Ignore cleanup errors
         }
+        throw new Error(`Failed to write temporary file: ${error.message}`);
       }
 
-      // Step 3: Run nginx -t to validate
-      const { exec } = require("child_process");
-      const { promisify } = require("util");
-      const execAsync = promisify(exec);
+      // Step 3: Move new file to nginx directory using sudo mv
+      try {
+        const mvCommand = `sudo mv "${tmpFilePath}" "${nginxFilePath}"`;
+        logger.info(`📦 Executing: ${mvCommand}`);
+        await execAsync(mvCommand);
+        logger.info(`📦 Moved new file to: ${nginxFilePath}`);
+      } catch (error: any) {
+        logger.error(`❌ Failed to move file: ${error.message}`);
+        // Clean up temp file and backup
+        try {
+          await fs.promises.unlink(tmpFilePath);
+          await execAsync(`sudo rm "${backupFilePath}"`);
+        } catch (cleanupError) {
+          // Ignore cleanup errors
+        }
+        throw new Error(`Failed to move file to nginx directory: ${error.message}`);
+      }
 
+      // Step 4: Run nginx -t to validate
       try {
         logger.info(`🔍 Running nginx -t validation...`);
         const { stdout, stderr } = await execAsync("sudo nginx -t");
@@ -706,26 +716,33 @@ router.post("/config-file/:nginxFilePublicId", async (req: Request, res: Respons
         logger.info(`nginx -t stdout: ${stdout}`);
         logger.info(`nginx -t stderr: ${stderr}`);
 
-        // Step 4a: Success - Delete backup
-        await fs.promises.unlink(backupPath);
-        logger.info(`🗑️  Deleted backup: ${backupPath}`);
+        // Step 5a: Success - Delete backup
+        try {
+          const rmCommand = `sudo rm "${backupFilePath}"`;
+          logger.info(`🗑️  Executing: ${rmCommand}`);
+          await execAsync(rmCommand);
+          logger.info(`🗑️  Deleted backup: ${backupFilePath}`);
+        } catch (cleanupError) {
+          logger.warn(`⚠️  Failed to delete backup (non-critical): ${cleanupError}`);
+        }
 
         res.json({
           message: "Nginx configuration updated successfully",
-          filePath,
+          filePath: nginxFilePath,
           serverName: config.serverName,
           validationPassed: true,
         });
       } catch (nginxTestError: any) {
-        // Step 4b: nginx -t failed - Restore backup
+        // Step 5b: nginx -t failed - Restore backup
         logger.error(`❌ nginx -t failed, restoring backup`);
 
         try {
-          await fs.promises.rename(backupPath, filePath);
-          logger.info(`♻️  Restored backup: ${backupPath} -> ${filePath}`);
-        } catch (restoreError) {
-          logger.error(`⚠️  CRITICAL: Failed to restore backup:`, restoreError);
-          // Even if restore fails, still return the nginx -t error
+          const restoreCommand = `sudo mv "${backupFilePath}" "${nginxFilePath}"`;
+          logger.info(`♻️  Executing: ${restoreCommand}`);
+          await execAsync(restoreCommand);
+          logger.info(`♻️  Restored backup: ${backupFilePath} -> ${nginxFilePath}`);
+        } catch (restoreError: any) {
+          logger.error(`⚠️  CRITICAL: Failed to restore backup: ${restoreError.message}`);
         }
 
         return res.status(400).json({
@@ -741,14 +758,7 @@ router.post("/config-file/:nginxFilePublicId", async (req: Request, res: Respons
         });
       }
     } catch (error: any) {
-      // Clean up backup if it exists
-      try {
-        await fs.promises.unlink(backupPath);
-        logger.info(`🗑️  Cleaned up backup after error: ${backupPath}`);
-      } catch (cleanupError) {
-        // Ignore cleanup errors
-      }
-
+      logger.error(`❌ Unexpected error during update: ${error.message}`);
       throw error; // Re-throw to outer catch
     }
   } catch (error) {

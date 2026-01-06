@@ -480,6 +480,281 @@ router.delete("/clear", async (req: Request, res: Response) => {
   }
 });
 
+// 🔹 GET /nginx/config-file/:nginxFilePublicId: Get nginx config file contents
+router.get("/config-file/:nginxFilePublicId", async (req: Request, res: Response) => {
+  try {
+    const { nginxFilePublicId } = req.params;
+
+    // Validate publicId format (UUID v4)
+    if (!isValidUUID(nginxFilePublicId)) {
+      return res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid nginxFilePublicId format",
+          details: "nginxFilePublicId must be a valid UUID v4",
+          status: 400,
+        },
+      });
+    }
+
+    // Find the configuration document
+    const config = await NginxFile.findOne({ publicId: nginxFilePublicId });
+    if (!config) {
+      return res.status(404).json({
+        error: {
+          code: "NOT_FOUND",
+          message: "Configuration not found",
+          details: "Nginx configuration with specified publicId not found",
+          status: 404,
+        },
+      });
+    }
+
+    // Construct file path
+    const filePath = path.join(config.storeDirectory, config.serverName);
+
+    // Read the file
+    try {
+      const content = await fs.promises.readFile(filePath, "utf-8");
+      logger.info(`📖 Read nginx config file: ${filePath}`);
+
+      res.json({
+        content,
+        filePath,
+        serverName: config.serverName,
+      });
+    } catch (error: any) {
+      // Handle file read errors
+      if (error.code === "ENOENT") {
+        return res.status(404).json({
+          error: {
+            code: "NOT_FOUND",
+            message: "Configuration file not found on disk",
+            details:
+              process.env.NODE_ENV !== "production"
+                ? `File not found: ${filePath}`
+                : undefined,
+            status: 404,
+          },
+        });
+      } else if (error.code === "EACCES") {
+        return res.status(500).json({
+          error: {
+            code: "INTERNAL_ERROR",
+            message: "Permission denied reading configuration file",
+            details:
+              process.env.NODE_ENV !== "production"
+                ? `Access denied: ${filePath}`
+                : undefined,
+            status: 500,
+          },
+        });
+      } else {
+        throw error; // Re-throw unexpected errors
+      }
+    }
+  } catch (error) {
+    logger.error("Error reading nginx config file:", error);
+    res.status(500).json({
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to read nginx configuration file",
+        details:
+          process.env.NODE_ENV !== "production"
+            ? error instanceof Error
+              ? error.message
+              : "Unknown error"
+            : undefined,
+        status: 500,
+      },
+    });
+  }
+});
+
+// 🔹 POST /nginx/config-file/:nginxFilePublicId: Update nginx config file with validation
+router.post("/config-file/:nginxFilePublicId", async (req: Request, res: Response) => {
+  try {
+    const { nginxFilePublicId } = req.params;
+    const { content } = req.body;
+
+    // Validate publicId format (UUID v4)
+    if (!isValidUUID(nginxFilePublicId)) {
+      return res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid nginxFilePublicId format",
+          details: "nginxFilePublicId must be a valid UUID v4",
+          status: 400,
+        },
+      });
+    }
+
+    // Validate content is provided
+    if (!content || typeof content !== "string") {
+      return res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Request validation failed",
+          details: "Missing or invalid 'content' field in request body. Must be a non-empty string.",
+          status: 400,
+        },
+      });
+    }
+
+    // Find the configuration document
+    const config = await NginxFile.findOne({ publicId: nginxFilePublicId });
+    if (!config) {
+      return res.status(404).json({
+        error: {
+          code: "NOT_FOUND",
+          message: "Configuration not found",
+          details: "Nginx configuration with specified publicId not found",
+          status: 404,
+        },
+      });
+    }
+
+    // Construct file path
+    const filePath = path.join(config.storeDirectory, config.serverName);
+    const backupPath = `${filePath}.backup.${Date.now()}`;
+
+    logger.info(`📝 Updating nginx config file: ${filePath}`);
+
+    try {
+      // Step 1: Create backup of original file
+      try {
+        await fs.promises.copyFile(filePath, backupPath);
+        logger.info(`💾 Created backup: ${backupPath}`);
+      } catch (error: any) {
+        if (error.code === "ENOENT") {
+          return res.status(404).json({
+            error: {
+              code: "NOT_FOUND",
+              message: "Configuration file not found on disk",
+              details:
+                process.env.NODE_ENV !== "production"
+                  ? `File not found: ${filePath}`
+                  : undefined,
+              status: 404,
+            },
+          });
+        } else if (error.code === "EACCES") {
+          return res.status(500).json({
+            error: {
+              code: "INTERNAL_ERROR",
+              message: "Permission denied creating backup",
+              details:
+                process.env.NODE_ENV !== "production"
+                  ? `Access denied: ${filePath}`
+                  : undefined,
+              status: 500,
+            },
+          });
+        } else {
+          throw error;
+        }
+      }
+
+      // Step 2: Write new content to file
+      try {
+        await fs.promises.writeFile(filePath, content, "utf-8");
+        logger.info(`✍️  Wrote new content to: ${filePath}`);
+      } catch (error: any) {
+        // Restore backup on write failure
+        await fs.promises.rename(backupPath, filePath);
+        logger.error(`❌ Failed to write new content, restored backup`);
+
+        if (error.code === "EACCES") {
+          return res.status(500).json({
+            error: {
+              code: "INTERNAL_ERROR",
+              message: "Permission denied writing configuration file",
+              details:
+                process.env.NODE_ENV !== "production"
+                  ? `Access denied: ${filePath}`
+                  : undefined,
+              status: 500,
+            },
+          });
+        } else {
+          throw error;
+        }
+      }
+
+      // Step 3: Run nginx -t to validate
+      const { exec } = require("child_process");
+      const { promisify } = require("util");
+      const execAsync = promisify(exec);
+
+      try {
+        const { stdout, stderr } = await execAsync("sudo nginx -t");
+        logger.info(`✅ nginx -t passed`);
+        logger.debug(`nginx -t stdout: ${stdout}`);
+        logger.debug(`nginx -t stderr: ${stderr}`);
+
+        // Step 4a: Success - Delete backup
+        await fs.promises.unlink(backupPath);
+        logger.info(`🗑️  Deleted backup: ${backupPath}`);
+
+        res.json({
+          message: "Nginx configuration updated successfully",
+          filePath,
+          serverName: config.serverName,
+          validationPassed: true,
+        });
+      } catch (nginxTestError: any) {
+        // Step 4b: nginx -t failed - Restore backup
+        logger.error(`❌ nginx -t failed, restoring backup`);
+
+        try {
+          await fs.promises.rename(backupPath, filePath);
+          logger.info(`♻️  Restored backup: ${backupPath} -> ${filePath}`);
+        } catch (restoreError) {
+          logger.error(`⚠️  CRITICAL: Failed to restore backup:`, restoreError);
+          // Even if restore fails, still return the nginx -t error
+        }
+
+        return res.status(400).json({
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Nginx configuration validation failed",
+            details:
+              process.env.NODE_ENV !== "production"
+                ? `nginx -t failed: ${nginxTestError.stderr || nginxTestError.message}`
+                : "Invalid nginx configuration syntax. Changes have been reverted.",
+            status: 400,
+          },
+        });
+      }
+    } catch (error: any) {
+      // Clean up backup if it exists
+      try {
+        await fs.promises.unlink(backupPath);
+        logger.info(`🗑️  Cleaned up backup after error: ${backupPath}`);
+      } catch (cleanupError) {
+        // Ignore cleanup errors
+      }
+
+      throw error; // Re-throw to outer catch
+    }
+  } catch (error) {
+    logger.error("Error updating nginx config file:", error);
+    res.status(500).json({
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to update nginx configuration file",
+        details:
+          process.env.NODE_ENV !== "production"
+            ? error instanceof Error
+              ? error.message
+              : "Unknown error"
+            : undefined,
+        status: 500,
+      },
+    });
+  }
+});
+
 // 🔹 DELETE /nginx/:publicId: Delete nginx config file and database record
 router.delete("/:publicId", async (req: Request, res: Response) => {
   try {

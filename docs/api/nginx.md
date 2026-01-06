@@ -370,6 +370,303 @@ curl --location 'http://localhost:3000/nginx/create-config-file' \
 
 ---
 
+## GET /nginx/config-file/:nginxFilePublicId
+
+Read the contents of an nginx configuration file from disk.
+
+**Authentication:** Required (JWT token)
+
+**URL Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `nginxFilePublicId` | String | Yes | UUID v4 public identifier of the nginx config |
+
+**Sample Request:**
+
+```bash
+curl --location 'http://localhost:3000/nginx/config-file/a3f2b1c4-5d6e-7f8a-9b0c-1d2e3f4a5b6c' \
+--header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+**Success Response (200 OK):**
+
+```json
+{
+  "content": "server {\n    listen 80;\n    server_name api.example.com www.api.example.com;\n    location / {\n        proxy_pass http://192.168.1.100:3000;\n        proxy_http_version 1.1;\n        proxy_set_header Upgrade $http_upgrade;\n        proxy_set_header Connection 'upgrade';\n        proxy_set_header Host $host;\n        proxy_cache_bypass $http_upgrade;\n    }\n}",
+  "filePath": "/etc/nginx/sites-available/api.example.com",
+  "serverName": "api.example.com"
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `content` | String | Full text content of the nginx configuration file |
+| `filePath` | String | Absolute path to the file on disk |
+| `serverName` | String | Primary server name from database record |
+
+**Error Response (400 Bad Request - Invalid publicId):**
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid nginxFilePublicId format",
+    "details": "nginxFilePublicId must be a valid UUID v4",
+    "status": 400
+  }
+}
+```
+
+**Error Response (404 Not Found - Database Record):**
+
+```json
+{
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Configuration not found",
+    "details": "Nginx configuration with specified publicId not found",
+    "status": 404
+  }
+}
+```
+
+**Error Response (404 Not Found - File Missing):**
+
+```json
+{
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Configuration file not found on disk",
+    "details": "File not found: /etc/nginx/sites-available/api.example.com (only in development mode)",
+    "status": 404
+  }
+}
+```
+
+**Error Response (500 Internal Server Error - Permission Denied):**
+
+```json
+{
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "Permission denied reading configuration file",
+    "details": "Access denied: /etc/nginx/sites-available/api.example.com (only in development mode)",
+    "status": 500
+  }
+}
+```
+
+**Error Response (500 Internal Server Error):**
+
+```json
+{
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "Failed to read nginx configuration file",
+    "details": "Detailed error message (only in development mode)",
+    "status": 500
+  }
+}
+```
+
+**Behavior:**
+
+- Validates UUID v4 format for nginxFilePublicId parameter
+- Looks up configuration record in database using `publicId` field
+- Constructs file path from database record's `storeDirectory` + `serverName`
+- Reads file content from disk using Node.js fs.promises.readFile
+- Returns raw file content as string
+- Handles specific error cases:
+  - `ENOENT` (file not found) → 404 with descriptive message
+  - `EACCES` (permission denied) → 500 with permission error
+- Does not modify or parse the file content
+
+---
+
+## POST /nginx/config-file/:nginxFilePublicId
+
+Update an nginx configuration file with automatic backup and syntax validation using `nginx -t`.
+
+**Authentication:** Required (JWT token)
+
+**URL Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `nginxFilePublicId` | String | Yes | UUID v4 public identifier of the nginx config |
+
+**Request Body Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `content` | String | Yes | New nginx configuration file content |
+
+**Sample Request:**
+
+```bash
+curl --location 'http://localhost:3000/nginx/config-file/a3f2b1c4-5d6e-7f8a-9b0c-1d2e3f4a5b6c' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \
+--data-raw '{
+  "content": "server {\n    listen 80;\n    server_name api.example.com www.api.example.com;\n    location / {\n        proxy_pass http://192.168.1.100:3000;\n        proxy_http_version 1.1;\n        proxy_set_header Upgrade $http_upgrade;\n        proxy_set_header Connection '\''upgrade'\'';\n        proxy_set_header Host $host;\n        proxy_cache_bypass $http_upgrade;\n    }\n}"
+}'
+```
+
+**Success Response (200 OK):**
+
+```json
+{
+  "message": "Nginx configuration updated successfully",
+  "filePath": "/etc/nginx/sites-available/api.example.com",
+  "serverName": "api.example.com",
+  "validationPassed": true
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `message` | String | Success message |
+| `filePath` | String | Absolute path to the updated file |
+| `serverName` | String | Primary server name from database record |
+| `validationPassed` | Boolean | Indicates nginx -t validation succeeded |
+
+**Error Response (400 Bad Request - Invalid publicId):**
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid nginxFilePublicId format",
+    "details": "nginxFilePublicId must be a valid UUID v4",
+    "status": 400
+  }
+}
+```
+
+**Error Response (400 Bad Request - Missing Content):**
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Request validation failed",
+    "details": "Missing or invalid 'content' field in request body. Must be a non-empty string.",
+    "status": 400
+  }
+}
+```
+
+**Error Response (404 Not Found - Database Record):**
+
+```json
+{
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Configuration not found",
+    "details": "Nginx configuration with specified publicId not found",
+    "status": 404
+  }
+}
+```
+
+**Error Response (404 Not Found - File Missing):**
+
+```json
+{
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Configuration file not found on disk",
+    "details": "File not found: /etc/nginx/sites-available/api.example.com (only in development mode)",
+    "status": 404
+  }
+}
+```
+
+**Error Response (400 Bad Request - Nginx Validation Failed):**
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Nginx configuration validation failed",
+    "details": "nginx -t failed: nginx: [emerg] unexpected \"}\" in /etc/nginx/sites-available/api.example.com:10 (only in development mode)",
+    "status": 400
+  }
+}
+```
+
+**Error Response (500 Internal Server Error - Permission Denied):**
+
+```json
+{
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "Permission denied creating backup",
+    "details": "Access denied: /etc/nginx/sites-available/api.example.com (only in development mode)",
+    "status": 500
+  }
+}
+```
+
+**Error Response (500 Internal Server Error):**
+
+```json
+{
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "Failed to update nginx configuration file",
+    "details": "Detailed error message (only in development mode)",
+    "status": 500
+  }
+}
+```
+
+**Behavior:**
+
+**Step 1: Validation**
+- Validates UUID v4 format for nginxFilePublicId parameter
+- Validates content field is a non-empty string
+- Looks up configuration record in database using `publicId` field
+
+**Step 2: Backup Creation**
+- Creates timestamped backup: `{originalFile}.backup.{timestamp}`
+- Example: `api.example.com.backup.1704567890123`
+- Returns 404 if original file doesn't exist
+- Returns 500 on permission errors during backup
+
+**Step 3: Write New Content**
+- Writes new content to original file path
+- If write fails, automatically restores from backup
+- Handles permission errors with descriptive messages
+
+**Step 4: Nginx Validation**
+- Runs `sudo nginx -t` to validate ALL nginx configurations
+- Checks syntax and configuration validity across entire nginx setup
+
+**Step 5a: Validation Success**
+- Deletes backup file
+- Returns success response with validation status
+
+**Step 5b: Validation Failure**
+- Automatically restores backup (moves backup back to original location)
+- Returns 400 error with nginx -t output
+- Original configuration is preserved
+- No downtime or broken nginx configuration
+
+**Safety Features:**
+- Atomic operation with automatic rollback on failure
+- Preserves working configuration if new config has syntax errors
+- Validates before applying changes to prevent nginx breakage
+- Detailed error messages include line numbers from nginx -t output
+- Handles file permission errors gracefully
+
+---
+
 ## DELETE /nginx/clear
 
 Clear all nginx configuration files from the database (does not delete physical files).

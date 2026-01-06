@@ -692,7 +692,9 @@ router.post("/config-file/:nginxFilePublicId", async (req: Request, res: Respons
 
       // Step 3: Move new file to nginx directory using sudo mv
       try {
-        const mvCommand = `sudo mv "${tmpFilePath}" "${nginxFilePath}"`;
+        // IMPORTANT: Destination must be directory (with trailing slash), not full file path
+        // This matches the sudoers rule: /usr/bin/mv /home/nick/* /etc/nginx/sites-available/
+        const mvCommand = `sudo mv "${tmpFilePath}" "${config.storeDirectory}/"`;
         logger.info(`📦 Executing: ${mvCommand}`);
         await execAsync(mvCommand);
         logger.info(`📦 Moved new file to: ${nginxFilePath}`);

@@ -619,13 +619,22 @@ router.post("/config-file/:nginxFilePublicId", async (req: Request, res: Respons
     const backupPath = `${filePath}.backup.${Date.now()}`;
 
     logger.info(`📝 Updating nginx config file: ${filePath}`);
+    logger.info(`📝 Store directory: ${config.storeDirectory}`);
+    logger.info(`📝 Server name: ${config.serverName}`);
+    logger.info(`📝 Backup path: ${backupPath}`);
 
     try {
       // Step 1: Create backup of original file
       try {
+        logger.info(`💾 Attempting to create backup using fs.copyFile...`);
+        logger.info(`💾 Source: ${filePath}`);
+        logger.info(`💾 Destination: ${backupPath}`);
         await fs.promises.copyFile(filePath, backupPath);
         logger.info(`💾 Created backup: ${backupPath}`);
       } catch (error: any) {
+        logger.error(`❌ Backup creation failed with error code: ${error.code}`);
+        logger.error(`❌ Error message: ${error.message}`);
+        logger.error(`❌ Full error:`, error);
         if (error.code === "ENOENT") {
           return res.status(404).json({
             error: {
@@ -657,9 +666,13 @@ router.post("/config-file/:nginxFilePublicId", async (req: Request, res: Respons
 
       // Step 2: Write new content to file
       try {
+        logger.info(`✍️  Attempting to write new content to: ${filePath}`);
+        logger.info(`✍️  Content length: ${content.length} characters`);
         await fs.promises.writeFile(filePath, content, "utf-8");
-        logger.info(`✍️  Wrote new content to: ${filePath}`);
+        logger.info(`✍️  Successfully wrote new content to: ${filePath}`);
       } catch (error: any) {
+        logger.error(`❌ Write failed with error code: ${error.code}`);
+        logger.error(`❌ Write error message: ${error.message}`);
         // Restore backup on write failure
         await fs.promises.rename(backupPath, filePath);
         logger.error(`❌ Failed to write new content, restored backup`);
@@ -687,10 +700,11 @@ router.post("/config-file/:nginxFilePublicId", async (req: Request, res: Respons
       const execAsync = promisify(exec);
 
       try {
+        logger.info(`🔍 Running nginx -t validation...`);
         const { stdout, stderr } = await execAsync("sudo nginx -t");
         logger.info(`✅ nginx -t passed`);
-        logger.debug(`nginx -t stdout: ${stdout}`);
-        logger.debug(`nginx -t stderr: ${stderr}`);
+        logger.info(`nginx -t stdout: ${stdout}`);
+        logger.info(`nginx -t stderr: ${stderr}`);
 
         // Step 4a: Success - Delete backup
         await fs.promises.unlink(backupPath);

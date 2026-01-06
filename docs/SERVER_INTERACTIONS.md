@@ -24,6 +24,11 @@ nick,ALL=(root),NOPASSWD:,/usr/bin/mv,/home/nick/*.service,/etc/systemd/system/
 nick,ALL=(root),NOPASSWD:,/usr/bin/mv,/home/nick/*.timer,/etc/systemd/system/
 nick,ALL=(root),NOPASSWD:,/usr/bin/cat,/etc/systemd/system/*.service,
 nick,ALL=(root),NOPASSWD:,/usr/bin/cat,/etc/systemd/system/*.timer,
+nick,ALL=(root),NOPASSWD:,/usr/bin/cat,/etc/nginx/sites-available/*,
+nick,ALL=(root),NOPASSWD:,/usr/bin/cp,/etc/nginx/sites-available/*,/etc/nginx/sites-available/*.backup.*
+nick,ALL=(root),NOPASSWD:,/usr/bin/mv,/home/nick/*,/etc/nginx/sites-available/
+nick,ALL=(root),NOPASSWD:,/usr/bin/mv,/etc/nginx/sites-available/*.backup.*,/etc/nginx/sites-available/*
+nick,ALL=(root),NOPASSWD:,/usr/bin/rm,/etc/nginx/sites-available/*.backup.*,
 ```
 
 Each row specifies:
@@ -351,6 +356,7 @@ Environment files are stored in the service's `workingDirectory` (as configured 
 **POST /services/env-file/my-api:**
 
 Request:
+
 ```json
 {
   "env": "PORT=3000\nDATABASE_URL=mongodb://localhost:27017\n",
@@ -359,6 +365,7 @@ Request:
 ```
 
 Response:
+
 ```json
 {
   "status": "success",

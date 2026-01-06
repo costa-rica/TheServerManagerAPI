@@ -1745,7 +1745,7 @@ Updates the contents of `.env` and/or `.env.local` files in a service's working 
   "error": {
     "code": "VALIDATION_ERROR",
     "message": "Invalid characters in .env file content",
-    "details": "Only alphanumeric and these special characters are allowed: _ = # . - : / \" ' @ space newline tab",
+    "details": "Only alphanumeric and these special characters are allowed: _ = # . - : / \" ' @ [ ] { } comma space newline tab",
     "status": 400
   }
 }
@@ -1816,7 +1816,7 @@ curl --location --request POST 'http://localhost:3000/services/env-file/my-api' 
 **Behavior:**
 
 - Validates that at least one of `env` or `envLocal` is provided
-- Validates content against character whitelist: `a-z A-Z 0-9 _ = # . - : / " ' @ space newline tab`
+- Validates content against character whitelist: `a-z A-Z 0-9 _ = # . - : / " ' @ [ ] { } comma space newline tab`
 - Uses `getMachineInfo()` to identify current machine by hostname
 - Finds the service in machine's `servicesArray` by matching the `name` field
 - Retrieves the service's `workingDirectory` path

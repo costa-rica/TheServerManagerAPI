@@ -1864,14 +1864,14 @@ router.post("/env-file/:name", async (req: Request, res: Response) => {
         });
       }
 
-      // Validate characters - allow: a-z A-Z 0-9 _ = # . - : / " ' @ space newline tab \r
-      const allowedPattern = /^[a-zA-Z0-9_=#.\-:/"' @\n\r\t]*$/;
+      // Validate characters - allow: a-z A-Z 0-9 _ = # . - : / " ' @ , [ ] { } space newline tab \r
+      const allowedPattern = /^[a-zA-Z0-9_=#.\-:/"' @\n\r\t,\[\]\{\}]*$/;
       if (!allowedPattern.test(env)) {
         return res.status(400).json({
           error: {
             code: "VALIDATION_ERROR",
             message: "Invalid characters in .env file content",
-            details: "Only alphanumeric and these special characters are allowed: _ = # . - : / \" ' @ space newline tab",
+            details: "Only alphanumeric and these special characters are allowed: _ = # . - : / \" ' @ , [ ] { } space newline tab",
             status: 400,
           },
         });
@@ -1891,14 +1891,14 @@ router.post("/env-file/:name", async (req: Request, res: Response) => {
         });
       }
 
-      // Validate characters - allow: a-z A-Z 0-9 _ = # . - : / " ' @ space newline tab \r
-      const allowedPattern = /^[a-zA-Z0-9_=#.\-:/"' @\n\r\t]*$/;
+      // Validate characters - allow: a-z A-Z 0-9 _ = # . - : / " ' @ , [ ] { } space newline tab \r
+      const allowedPattern = /^[a-zA-Z0-9_=#.\-:/"' @\n\r\t,\[\]\{\}]*$/;
       if (!allowedPattern.test(envLocal)) {
         return res.status(400).json({
           error: {
             code: "VALIDATION_ERROR",
             message: "Invalid characters in .env.local file content",
-            details: "Only alphanumeric and these special characters are allowed: _ = # . - : / \" ' @ space newline tab",
+            details: "Only alphanumeric and these special characters are allowed: _ = # . - : / \" ' @ , [ ] { } space newline tab",
             status: 400,
           },
         });

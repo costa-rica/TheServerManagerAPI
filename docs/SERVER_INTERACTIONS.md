@@ -18,8 +18,6 @@ Sudo privileges are managed through a CSV file located at `/home/nick/nick-syste
 
 ```csv
 user,runas,tag,command,action,unit
-nick,ALL=(root),NOPASSWD:,/usr/bin/systemctl,restart,tsm-api.service
-nick,ALL=(root),NOPASSWD:,/usr/bin/systemctl,status,tsm-api.service
 nick,ALL=(root),NOPASSWD:,/usr/bin/mv,/home/nick/*.service,/etc/systemd/system/
 nick,ALL=(root),NOPASSWD:,/usr/bin/mv,/home/nick/*.timer,/etc/systemd/system/
 nick,ALL=(root),NOPASSWD:,/usr/bin/cat,/etc/systemd/system/*.service,
@@ -29,6 +27,9 @@ nick,ALL=(root),NOPASSWD:,/usr/bin/cp,/etc/nginx/sites-available/*,/etc/nginx/si
 nick,ALL=(root),NOPASSWD:,/usr/bin/mv,/home/nick/*,/etc/nginx/sites-available/
 nick,ALL=(root),NOPASSWD:,/usr/bin/mv,/etc/nginx/sites-available/*.backup.*,/etc/nginx/sites-available/*
 nick,ALL=(root),NOPASSWD:,/usr/bin/rm,/etc/nginx/sites-available/*.backup.*,
+nick,ALL=(root),NOPASSWD:,/usr/sbin/nginx,-t,
+nick,ALL=(root),NOPASSWD:,/usr/bin/systemctl,restart,tsm-api.service
+nick,ALL=(root),NOPASSWD:,/usr/bin/systemctl,status,tsm-api.service
 ```
 
 Each row specifies:

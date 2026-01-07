@@ -677,6 +677,13 @@ router.post("/config-file/:nginxFilePublicId", async (req: Request, res: Respons
       try {
         logger.info(`✍️  Writing new content to temp file: ${tmpFilePath}`);
         logger.info(`✍️  Content length: ${content.length} characters`);
+
+        // Log content preview (first 200 and last 200 characters)
+        const contentLines = content.split('\n');
+        logger.info(`✍️  Content preview - Total lines: ${contentLines.length}`);
+        logger.info(`✍️  First 5 lines:\n${contentLines.slice(0, 5).join('\n')}`);
+        logger.info(`✍️  Last 5 lines:\n${contentLines.slice(-5).join('\n')}`);
+
         await fs.promises.writeFile(tmpFilePath, content, "utf-8");
         logger.info(`✍️  Successfully wrote temp file: ${tmpFilePath}`);
       } catch (error: any) {
@@ -715,8 +722,8 @@ router.post("/config-file/:nginxFilePublicId", async (req: Request, res: Respons
         logger.info(`🔍 Running nginx -t validation...`);
         const { stdout, stderr } = await execAsync("sudo nginx -t");
         logger.info(`✅ nginx -t passed`);
-        logger.info(`nginx -t stdout: ${stdout}`);
-        logger.info(`nginx -t stderr: ${stderr}`);
+        logger.info(`✅ nginx -t stdout: ${stdout}`);
+        logger.info(`✅ nginx -t stderr: ${stderr}`);
 
         // Step 5a: Success - Delete backup
         try {
@@ -736,7 +743,11 @@ router.post("/config-file/:nginxFilePublicId", async (req: Request, res: Respons
         });
       } catch (nginxTestError: any) {
         // Step 5b: nginx -t failed - Restore backup
-        logger.error(`❌ nginx -t failed, restoring backup`);
+        logger.error(`❌ nginx -t validation FAILED`);
+        logger.error(`❌ nginx -t exit code: ${nginxTestError.code}`);
+        logger.error(`❌ nginx -t stdout: ${nginxTestError.stdout || '(empty)'}`);
+        logger.error(`❌ nginx -t stderr: ${nginxTestError.stderr || '(empty)'}`);
+        logger.error(`❌ Full nginx -t error: ${nginxTestError.message}`);
 
         try {
           const restoreCommand = `sudo mv "${backupFilePath}" "${nginxFilePath}"`;

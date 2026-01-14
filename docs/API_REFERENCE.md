@@ -102,7 +102,8 @@ res.status(400).json({
 
 ## Routers
 
-- [/machines](./api/machines.md) : Machine management
-- [/users](./api/users.md) : User management
-- [/nginx](./api/nginx.md) : Nginx management
-- [/registrar](./api/registrar.md) : Registrar management
+- [/users](./api/users.md) : User authentication and management
+- [/machines](./api/machines.md) : Machine management with permission filtering
+- [/admin](./api/admin.md) : Admin user management and access control
+- [/nginx](./api/nginx.md) : Nginx configuration management
+- [/registrar](./api/registrar.md) : DNS registrar management

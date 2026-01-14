@@ -307,7 +307,7 @@ Jan  3 10:15:25 ubuntu-server-01 sshd[9876]: Accepted publickey for ubuntu from 
 
 ## GET /machines
 
-Get all registered machines in the system.
+Get machines accessible to the authenticated user (filtered by permissions).
 
 **Authentication:** Required (JWT token)
 
@@ -325,7 +325,6 @@ curl --location 'http://localhost:3000/machines' \
   "result": true,
   "existingMachines": [
     {
-      "_id": "507f1f77bcf86cd799439011",
       "publicId": "a3f2b1c4-5d6e-7f8a-9b0c-1d2e3f4a5b6c",
       "machineName": "ubuntu-server-01",
       "urlApiForTsmNetwork": "http://192.168.1.100:8000",
@@ -346,6 +345,27 @@ curl --location 'http://localhost:3000/machines' \
   ]
 }
 ```
+
+**Error Response (500 Internal Server Error):**
+
+```json
+{
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "Failed to retrieve machines",
+    "details": "Detailed error message (only in development mode)",
+    "status": 500
+  }
+}
+```
+
+**Behavior:**
+
+- Admin users (isAdmin=true) see all machines in the system
+- Non-admin users only see machines whose publicIds are in their `accessServersArray`
+- Non-admin users with empty `accessServersArray` receive an empty array
+- MongoDB `_id` field is excluded from response (only `publicId` is returned)
+- Permission filtering is transparent to the client (no error for insufficient access)
 
 ---
 

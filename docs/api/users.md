@@ -56,7 +56,10 @@ curl --location 'http://localhost:3000/users/register' \
   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "user": {
     "username": "user",
-    "email": "user@example.com"
+    "email": "user@example.com",
+    "isAdmin": false,
+    "accessServersArray": [],
+    "accessPagesArray": []
   }
 }
 ```
@@ -130,7 +133,9 @@ curl --location 'http://localhost:3000/users/login' \
   "user": {
     "username": "user",
     "email": "user@example.com",
-    "isAdmin": false
+    "isAdmin": false,
+    "accessServersArray": ["a3f2b1c4-5d6e-7f8a-9b0c-1d2e3f4a5b6c"],
+    "accessPagesArray": ["/dns/nginx", "/servers/services"]
   }
 }
 ```
@@ -165,6 +170,9 @@ curl --location 'http://localhost:3000/users/login' \
 - Verifies password using bcrypt.compare()
 - Returns JWT token signed with `JWT_SECRET` environment variable
 - Includes `isAdmin` flag in user response for authorization checks
+- Returns `accessServersArray` containing machine publicIds the user can access
+- Returns `accessPagesArray` containing page paths the user can access
+- Admin users (isAdmin=true) have full access regardless of permission arrays
 
 ---
 

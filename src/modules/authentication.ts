@@ -40,3 +40,33 @@ export async function authenticateToken(
 		next();
 	});
 }
+
+export function isAdmin(
+	req: Request,
+	res: Response,
+	next: NextFunction
+): void {
+	if (!req.user) {
+		res.status(401).json({
+			error: {
+				code: "AUTH_FAILED",
+				message: "Authentication required",
+				status: 401,
+			},
+		});
+		return;
+	}
+
+	if (!req.user.isAdmin) {
+		res.status(403).json({
+			error: {
+				code: "FORBIDDEN",
+				message: "Admin access required",
+				status: 403,
+			},
+		});
+		return;
+	}
+
+	next();
+}

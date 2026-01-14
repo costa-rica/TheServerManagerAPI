@@ -1,5 +1,6 @@
 import express from "express";
 import type { Request, Response } from "express";
+import { randomUUID } from "crypto";
 import { checkBodyReturnMissing } from "../modules/common";
 import { User } from "../models/user";
 import bcrypt from "bcrypt";
@@ -47,6 +48,7 @@ router.post("/register", async (req, res) => {
   const hashedPassword = await bcrypt.hash(password, 10);
 
   const user = await User.create({
+    publicId: randomUUID(),
     username: email.split("@")[0],
     password: hashedPassword,
     email,
@@ -57,7 +59,13 @@ router.post("/register", async (req, res) => {
   res.status(201).json({
     message: "User created successfully",
     token,
-    user: { username: user.username, email: user.email },
+    user: {
+      username: user.username,
+      email: user.email,
+      isAdmin: user.isAdmin,
+      accessServersArray: user.accessServersArray,
+      accessPagesArray: user.accessPagesArray,
+    },
   });
 });
 
@@ -106,7 +114,13 @@ router.post("/login", async (req, res) => {
   res.json({
     message: "User logged in successfully",
     token,
-    user: { username: user.username, email: user.email, isAdmin: user.isAdmin },
+    user: {
+      username: user.username,
+      email: user.email,
+      isAdmin: user.isAdmin,
+      accessServersArray: user.accessServersArray,
+      accessPagesArray: user.accessPagesArray,
+    },
   });
   // res.status(500).json({ error: "Testing this error" });
 });

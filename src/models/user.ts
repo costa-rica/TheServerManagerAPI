@@ -24,6 +24,14 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    accessServersArray: {
+      type: [String],
+      default: [],
+    },
+    accessPagesArray: {
+      type: [String],
+      default: [],
+    },
   },
   {
     timestamps: true, // Automatically adds createdAt and updatedAt

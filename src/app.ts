@@ -66,8 +66,10 @@ async function initializeApp() {
   }
 }
 
-// Initialize the app when this module is imported
-initializeApp();
+// Initialize the app when this module is imported (skip in test environment)
+if (process.env.NODE_ENV !== "test") {
+  initializeApp();
+}
 
 // Export the app for server.ts to use
 export default app;

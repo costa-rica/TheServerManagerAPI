@@ -138,19 +138,50 @@ router.get(
   }
 );
 
-// 🔹 GET /machines: Get all machines
+// 🔹 GET /machines: Get all machines (filtered by user permissions)
 router.get("/", authenticateToken, async (req, res) => {
   logger.info("in GET /machines");
 
-  const existingMachines = await Machine.find();
-  // logger.info(existingMachines);
+  try {
+    const user = req.user;
 
-  // Update each machine's properties if necessary
-  const updatedMachines = existingMachines.map((machine) => {
-    return machine;
-  });
+    // Fetch machines based on user permissions
+    let machines;
+    if (user.isAdmin) {
+      // Admin users see all machines
+      machines = await Machine.find();
+    } else {
+      // Non-admin users only see machines in their accessServersArray
+      machines = await Machine.find({
+        publicId: { $in: user.accessServersArray || [] },
+      });
+    }
 
-  return res.json({ result: true, existingMachines: updatedMachines });
+    // Map machines to exclude _id field
+    const formattedMachines = machines.map((machine) => ({
+      publicId: machine.publicId,
+      machineName: machine.machineName,
+      urlApiForTsmNetwork: machine.urlApiForTsmNetwork,
+      localIpAddress: machine.localIpAddress,
+      nginxStoragePathOptions: machine.nginxStoragePathOptions,
+      servicesArray: machine.servicesArray,
+      createdAt: machine.createdAt,
+      updatedAt: machine.updatedAt,
+    }));
+
+    return res.json({ result: true, existingMachines: formattedMachines });
+  } catch (error: any) {
+    logger.error("Error getting machines:", error);
+    return res.status(500).json({
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to retrieve machines",
+        details:
+          process.env.NODE_ENV !== "production" ? error.message : undefined,
+        status: 500,
+      },
+    });
+  }
 });
 
 // 🔹 POST /machines: Create a new machine

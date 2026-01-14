@@ -30,4 +30,22 @@ function isValidUUID(value: string): boolean {
 	return uuidRegex.test(value);
 }
 
-export { checkBodyReturnMissing, isValidUUID };
+/**
+ * Validates if a string is a valid page path for accessPagesArray
+ * Must contain no spaces and only "/", "-", ".", or alphanumerics
+ * @param value - String to validate
+ * @returns true if valid page path, false otherwise
+ */
+function isValidPagePath(value: string): boolean {
+	if (!value || typeof value !== "string") {
+		return false;
+	}
+
+	// Only allow: alphanumerics, forward slash, hyphen, and period
+	// No spaces allowed
+	const pagePathRegex = /^[a-zA-Z0-9\/\-\.]+$/;
+
+	return pagePathRegex.test(value);
+}
+
+export { checkBodyReturnMissing, isValidUUID, isValidPagePath };

@@ -29,9 +29,9 @@ On login the API will send the user's accessServersArray and accessPagesArray to
 
 The API GET /machines will return all machines if the user is an admin, and only the machines whose publicIds are in the accessServersArray if the user is not an admin.
 
-### Frontend Team Recommended: GET /admin/users
+### GET /admin/users
 
-Returns all users with their permission details for the admin page table.
+Returns all users with their permission details for the admin page table. Requires isAdmin=true.
 
 Request:
 
@@ -61,9 +61,9 @@ Response:
 }
 ```
 
-### Frontend Team Recommended: PATCH /admin/user/:userId/access-servers
+### PATCH /admin/user/:userId/access-servers
 
-Updates a user's accessServersArray. Replaces the entire array with the new values.
+Updates a user's accessServersArray. Replaces the entire array with the new values. Requires isAdmin=true.
 
 Request:
 
@@ -94,9 +94,9 @@ Response:
 }
 ```
 
-### Frontend Team Recommended: PATCH /admin/user/:userId/access-pages
+### PATCH /admin/user/:userId/access-pages
 
-Updates a user's accessPagesArray. Replaces the entire array with the new values.
+Updates a user's accessPagesArray. Replaces the entire array with the new values. Requires isAdmin=true.
 
 Request:
 
@@ -123,6 +123,41 @@ Response:
   }
 }
 ```
+
+### API Implementation TODO
+
+#### Database Schema Updates
+
+1. Update User model schema to add accessServersArray field (array of strings, default empty array)
+2. Update User model schema to add accessPagesArray field (array of strings, default empty array)
+
+#### Authentication Updates
+
+3. Update POST /users/login endpoint to return accessServersArray and accessPagesArray in user object
+4. Update POST /users/register endpoint to return accessServersArray and accessPagesArray in user object
+
+#### Authorization Middleware
+
+5. Create isAdmin middleware function to verify req.user.isAdmin is true (returns 403 if false)
+6. Apply isAdmin middleware to all /admin routes that manage user permissions
+
+#### Machine Access Control
+
+7. Update GET /machines endpoint to filter machines based on user permissions (admin sees all, non-admin sees only machines in their accessServersArray)
+8. Fix GET /machines endpoint to exclude MongoDB _id field from response (only return publicId and other document fields)
+
+#### Admin User Management Endpoints
+
+9. Create GET /admin/users endpoint to return all users with publicId, email, username, isAdmin, accessServersArray, accessPagesArray
+10. Create PATCH /admin/user/:userId/access-servers endpoint to update a user's accessServersArray (validate machine publicIds exist)
+11. Create PATCH /admin/user/:userId/access-pages endpoint to update a user's accessPagesArray (validate page paths if desired)
+
+#### Testing & Validation
+
+12. Test admin user can access all machines via GET /machines
+13. Test non-admin user only sees machines in their accessServersArray via GET /machines
+14. Test non-admin user cannot access /admin endpoints (receives 403)
+15. Test login returns correct accessServersArray and accessPagesArray for both admin and non-admin users
 
 ## Frontend
 

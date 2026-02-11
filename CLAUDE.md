@@ -99,7 +99,7 @@ The `createNginxConfigFromTemplate()` function (src/modules/nginx.ts) handles:
 1. Reading template file
 2. Replacing all placeholders
 3. Writing to specified destination directory
-4. Default filename: `<primaryServerName>.conf`
+4. Default filename: `<primaryServerName>` (no extension)
 
 **Directory Scanning:**
 `/nginx/scan-nginx-dir` endpoint scans the local nginx directory (from PATH_ETC_NGINX_SITES_AVAILABLE env var), parses configs using `parseNginxConfig()`, and generates reports via `generateNginxScanReport()`.

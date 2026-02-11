@@ -78,8 +78,8 @@ export async function createNginxConfigFromTemplate(
 		// 3. Use saveDestination as the target directory
 		const targetDir = saveDestination;
 
-		// 4. Determine output filename (use primary server name if not provided)
-		const fileName = outputFileName || primaryServerName;
+		// 4. Determine output filename (use primary server name with .conf extension if not provided)
+		const fileName = outputFileName || `${primaryServerName}.conf`;
 		const outputPath = path.join(targetDir, fileName);
 
 		// 5. Check if target directory exists

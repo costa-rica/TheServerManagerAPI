@@ -408,6 +408,7 @@ router.post("/create-config-file", async (req: Request, res: Response) => {
     });
 
     if (!configResult.success) {
+      logger.error("Nginx config creation failed:", configResult.error);
       return res.status(500).json({
         error: {
           code: "INTERNAL_ERROR",

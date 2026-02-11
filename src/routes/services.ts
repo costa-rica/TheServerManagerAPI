@@ -17,6 +17,7 @@ import {
   getLocalBranches,
   getRemoteBranches,
   gitFetch,
+  gitFetchPrune,
   gitPull,
   gitCheckout,
   getCurrentBranch,
@@ -601,6 +602,16 @@ router.get("/git/:name", async (req: Request, res: Response) => {
     }
 
     logger.info(`[services route] Found service: ${service.name}`);
+
+    // Prune stale remote-tracking refs before listing branches so deleted
+    // remote branches no longer appear in the results. Non-fatal: log a
+    // warning and continue if the fetch fails (e.g. no network access).
+    const pruneResult = await gitFetchPrune(name);
+    if (!pruneResult.success) {
+      logger.warn(
+        `[services route] git fetch --prune failed for "${name}", branch list may include stale remote refs: ${pruneResult.error}`
+      );
+    }
 
     // Get remote branches
     const branchesResult = await getLocalBranches(name);

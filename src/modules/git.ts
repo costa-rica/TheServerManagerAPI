@@ -122,6 +122,24 @@ export async function gitFetch(
 }
 
 /**
+ * Execute git fetch --prune to sync remote-tracking refs and remove
+ * stale references to branches deleted on the remote
+ * @param projectName - The service name
+ * @returns Promise with success status
+ */
+export async function gitFetchPrune(
+  projectName: string
+): Promise<{
+  success: boolean;
+  stdout: string;
+  stderr: string;
+  error?: string;
+}> {
+  logger.info(`[git.ts] Executing git fetch --prune for: ${projectName}`);
+  return executeGitCommand(projectName, "fetch --prune");
+}
+
+/**
  * Execute git pull
  * @param projectName - The service name
  * @returns Promise with success status

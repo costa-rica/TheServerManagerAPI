@@ -206,7 +206,7 @@ router.post("/create-config-file", async (req: Request, res: Response) => {
   // Log request body for testing
   logger.info("📥 POST /nginx/create-config-file - Request body:");
   logger.info(JSON.stringify(req.body, null, 2));
-  logger.info("Body type:", typeof req.body);
+  logger.info(`Body type: ${typeof req.body}`);
   logger.info("Body keys:", Object.keys(req.body || {}));
   try {
     // Validate required fields
@@ -408,7 +408,7 @@ router.post("/create-config-file", async (req: Request, res: Response) => {
     });
 
     if (!configResult.success) {
-      logger.error("Nginx config creation failed:", configResult.error);
+      logger.error("Nginx config creation failed", { error: configResult.error });
       return res.status(500).json({
         error: {
           code: "INTERNAL_ERROR",
